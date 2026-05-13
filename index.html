@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lift" />
+  <title>Lift — Workout Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="date-picker">
+      <button class="nav-btn" id="prevDay" aria-label="Previous day">‹</button>
+      <input type="date" id="dateInput" />
+      <button class="nav-btn" id="nextDay" aria-label="Next day">›</button>
+    </div>
+    <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">↻</button>
+  </header>
+
+  <main id="main">
+    <div id="status" class="status"></div>
+    <div id="workout" class="workout"></div>
+  </main>
+
+  <div id="setupBanner" class="setup-banner" hidden>
+    <strong>Setup needed.</strong> Open <code>config.js</code> and paste your
+    Google Apps Script Web App URL into <code>APPS_SCRIPT_URL</code>.
+  </div>
+
+  <template id="exerciseTemplate">
+    <section class="exercise">
+      <header class="exercise-head">
+        <h2 class="exercise-name"></h2>
+        <div class="prescribed-line"></div>
+      </header>
+      <div class="sets"></div>
+      <div class="exercise-actions">
+        <button class="log-btn">+ Log set</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="logFormTemplate">
+    <form class="log-form">
+      <label>
+        <span>Reps</span>
+        <input type="number" name="reps" inputmode="numeric" min="0" required />
+      </label>
+      <label>
+        <span>Weight</span>
+        <input type="number" name="weight" inputmode="decimal" step="0.5" min="0" required />
+      </label>
+      <div class="form-actions">
+        <button type="button" class="cancel-btn">Cancel</button>
+        <button type="submit" class="save-btn">Save set</button>
+      </div>
+    </form>
+  </template>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
