@@ -329,6 +329,106 @@
     romanInput.style.height = Math.min(romanInput.scrollHeight, 120) + 'px';
   });
 
+  /* ---- Voice input (Web Speech API) ---- */
+
+  const romanMic = document.getElementById('romanMic');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let userWantsListening = false;   // true while the mic button is "on"
+  let micBaseText = '';             // textarea content before this dictation started
+  let micFinalTranscript = '';      // accumulated finalized speech during this dictation
+
+  if (!SpeechRecognition) {
+    romanMic.disabled = true;
+    romanMic.title = 'Voice input not supported in this browser';
+  } else {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) {
+          micFinalTranscript += r[0].transcript + ' ';
+        } else {
+          interim += r[0].transcript;
+        }
+      }
+      romanInput.value = (micBaseText + micFinalTranscript + interim).trimStart();
+      // Retrigger auto-grow.
+      romanInput.style.height = 'auto';
+      romanInput.style.height = Math.min(romanInput.scrollHeight, 120) + 'px';
+    };
+
+    recognition.onerror = (event) => {
+      // 'no-speech' fires when a listening chunk timed out with silence — that's
+      // normal on iOS, don't surface it as a hard error.
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      userWantsListening = false;
+      setMicUI(false);
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        appendRomanBubble('error', 'Mic permission denied. Enable microphone access for this site in Safari settings, then try again.');
+      } else if (event.error === 'audio-capture') {
+        appendRomanBubble('error', 'No microphone found.');
+      } else {
+        appendRomanBubble('error', 'Voice input error: ' + event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      // iOS Safari auto-ends after each utterance even with continuous=true.
+      // Restart if the user hasn't tapped stop.
+      if (userWantsListening) {
+        // Preserve everything already captured so it becomes the new baseline.
+        micBaseText = (micBaseText + micFinalTranscript).replace(/\s+$/, '') + (micFinalTranscript ? ' ' : '');
+        micFinalTranscript = '';
+        try {
+          recognition.start();
+        } catch (e) {
+          userWantsListening = false;
+          setMicUI(false);
+        }
+      } else {
+        setMicUI(false);
+      }
+    };
+  }
+
+  function setMicUI(active) {
+    if (active) {
+      romanMic.classList.add('listening');
+      romanMic.textContent = '⏹';
+      romanMic.setAttribute('aria-label', 'Stop voice input');
+    } else {
+      romanMic.classList.remove('listening');
+      romanMic.textContent = '🎤';
+      romanMic.setAttribute('aria-label', 'Voice input');
+    }
+  }
+
+  romanMic.addEventListener('click', () => {
+    if (!recognition) return;
+    if (userWantsListening) {
+      userWantsListening = false;
+      try { recognition.stop(); } catch (e) { /* ignore */ }
+      setMicUI(false);
+      return;
+    }
+    // Starting a fresh dictation — capture whatever's already typed as the base.
+    micBaseText = romanInput.value ? romanInput.value.replace(/\s+$/, '') + ' ' : '';
+    micFinalTranscript = '';
+    try {
+      recognition.start();
+      userWantsListening = true;
+      setMicUI(true);
+    } catch (err) {
+      appendRomanBubble('error', 'Could not start mic: ' + err.message);
+    }
+  });
+
   romanForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = romanInput.value.trim();
@@ -336,6 +436,12 @@
     if (!apiConfigured()) {
       appendRomanBubble('error', 'Not connected to sheet. Fix config.js first.');
       return;
+    }
+    // Stop mic if it was still recording.
+    if (userWantsListening && recognition) {
+      userWantsListening = false;
+      try { recognition.stop(); } catch (err) { /* ignore */ }
+      setMicUI(false);
     }
 
     appendRomanBubble('user', text);

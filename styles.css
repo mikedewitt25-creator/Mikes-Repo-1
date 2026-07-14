@@ -398,3 +398,32 @@ main {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.roman-mic {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 44px;
+  padding: 0 12px;
+  font-size: 20px;
+  cursor: pointer;
+  align-self: stretch;
+}
+
+.roman-mic:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.roman-mic.listening {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  animation: roman-mic-pulse 1s ease-in-out infinite;
+}
+
+@keyframes roman-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
