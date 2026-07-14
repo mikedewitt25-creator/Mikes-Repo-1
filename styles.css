@@ -290,6 +290,31 @@ main {
 
 /* ================= Roman chat ================= */
 
+.roman-panel-head {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.roman-clear {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.roman-clear:active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .roman-messages {
   flex: 1;
   min-height: 0;

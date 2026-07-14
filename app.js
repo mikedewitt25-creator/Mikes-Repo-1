@@ -263,6 +263,7 @@
   const romanForm = document.getElementById('romanForm');
   const romanInput = document.getElementById('romanInput');
   const romanSend = document.getElementById('romanSend');
+  const romanClear = document.getElementById('romanClear');
 
   let romanHistoryRendered = false;
 
@@ -354,6 +355,13 @@
 
   tabWorkout.addEventListener('click', () => switchTab('workout'));
   tabRoman.addEventListener('click', () => switchTab('roman'));
+
+  romanClear.addEventListener('click', () => {
+    if (!confirm("Clear Roman's chat history? This can't be undone.")) return;
+    romanHistory = [];
+    saveRomanHistory();
+    renderRomanHistory();
+  });
 
   romanInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
