@@ -237,4 +237,143 @@
 
   dateInput.value = state.date;
   loadDay(state.date);
+
+  /* ================= Roman chat ================= */
+
+  const romanFab = document.getElementById('romanFab');
+  const romanDrawer = document.getElementById('romanDrawer');
+  const romanClose = document.getElementById('romanClose');
+  const romanMessages = document.getElementById('romanMessages');
+  const romanForm = document.getElementById('romanForm');
+  const romanInput = document.getElementById('romanInput');
+  const romanSend = document.getElementById('romanSend');
+
+  // Persist Roman's conversation across page loads so context isn't lost when
+  // Mike closes the tab mid-conversation.
+  let romanHistory = loadRomanHistory();
+
+  function loadRomanHistory() {
+    try {
+      const raw = localStorage.getItem('romanHistory');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveRomanHistory() {
+    try {
+      // Trim to last 40 turns to keep localStorage + Claude context bounded.
+      const trimmed = romanHistory.slice(-40);
+      localStorage.setItem('romanHistory', JSON.stringify(trimmed));
+      romanHistory = trimmed;
+    } catch (e) { /* quota — ignore */ }
+  }
+
+  function renderRomanHistory() {
+    romanMessages.innerHTML = '';
+    romanHistory.forEach((m) => {
+      const text = extractText(m);
+      if (!text) return;
+      appendRomanBubble(m.role === 'user' ? 'user' : 'assistant', text);
+    });
+    if (romanHistory.length === 0) {
+      appendRomanBubble('assistant', "What are we doing today?");
+    }
+    scrollRomanToBottom();
+  }
+
+  function extractText(msg) {
+    if (typeof msg.content === 'string') return msg.content;
+    if (!Array.isArray(msg.content)) return '';
+    let out = '';
+    msg.content.forEach((b) => {
+      if (b && b.type === 'text') out += b.text;
+    });
+    return out;
+  }
+
+  function appendRomanBubble(role, text) {
+    const el = document.createElement('div');
+    el.className = 'roman-msg ' + role;
+    el.textContent = text;
+    romanMessages.appendChild(el);
+    return el;
+  }
+
+  function scrollRomanToBottom() {
+    romanMessages.scrollTop = romanMessages.scrollHeight;
+  }
+
+  romanFab.addEventListener('click', () => {
+    romanDrawer.hidden = false;
+    renderRomanHistory();
+    setTimeout(() => romanInput.focus(), 50);
+  });
+
+  romanClose.addEventListener('click', () => {
+    romanDrawer.hidden = true;
+  });
+
+  romanInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      romanForm.requestSubmit();
+    }
+  });
+
+  // Auto-grow textarea.
+  romanInput.addEventListener('input', () => {
+    romanInput.style.height = 'auto';
+    romanInput.style.height = Math.min(romanInput.scrollHeight, 120) + 'px';
+  });
+
+  romanForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = romanInput.value.trim();
+    if (!text) return;
+    if (!apiConfigured()) {
+      appendRomanBubble('error', 'Not connected to sheet. Fix config.js first.');
+      return;
+    }
+
+    appendRomanBubble('user', text);
+    romanInput.value = '';
+    romanInput.style.height = 'auto';
+    scrollRomanToBottom();
+
+    const thinking = appendRomanBubble('assistant thinking', 'thinking…');
+    scrollRomanToBottom();
+    romanSend.disabled = true;
+
+    try {
+      const priorForRequest = romanHistory.slice();
+      const data = await apiPost({
+        action: 'chat',
+        userMessage: text,
+        today: state.date || todayIso(),
+        messages: priorForRequest,
+      });
+      thinking.remove();
+      const reply = data.reply || '(no reply)';
+      appendRomanBubble('assistant', reply);
+      // Server returns the full canonical message history (including tool_use
+      // and tool_result blocks) — trust it as the new state so tool context
+      // carries across turns.
+      if (Array.isArray(data.messages)) {
+        romanHistory = data.messages;
+        saveRomanHistory();
+      }
+      // If Roman wrote to the sheet, refresh the visible day.
+      loadDay(state.date);
+    } catch (err) {
+      thinking.remove();
+      appendRomanBubble('error', 'Roman failed: ' + err.message);
+    } finally {
+      romanSend.disabled = false;
+      scrollRomanToBottom();
+      romanInput.focus();
+    }
+  });
 })();

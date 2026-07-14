@@ -31,6 +31,23 @@
     Google Apps Script Web App URL into <code>APPS_SCRIPT_URL</code>.
   </div>
 
+  <button id="romanFab" class="roman-fab" aria-label="Talk to Roman">R</button>
+
+  <div id="romanDrawer" class="roman-drawer" hidden>
+    <header class="roman-head">
+      <div>
+        <strong>Roman</strong>
+        <span class="roman-sub">your coach</span>
+      </div>
+      <button id="romanClose" class="roman-close" aria-label="Close">×</button>
+    </header>
+    <div id="romanMessages" class="roman-messages"></div>
+    <form id="romanForm" class="roman-form">
+      <textarea id="romanInput" rows="1" placeholder="Ask Roman anything…" required></textarea>
+      <button type="submit" class="roman-send" id="romanSend">Send</button>
+    </form>
+  </div>
+
   <template id="exerciseTemplate">
     <section class="exercise">
       <header class="exercise-head">
