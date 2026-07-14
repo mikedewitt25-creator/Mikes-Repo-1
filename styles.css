@@ -78,6 +78,7 @@ main {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -85,6 +86,7 @@ main {
   padding: 16px;
   max-width: 640px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .panel[hidden] { display: none; }
@@ -126,25 +128,86 @@ main {
 .workout {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
+
+/* ---- Block (grouping of exercises: solo strength, superset, tri-set) ---- */
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.block-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #06283d;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.block-kind {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.block-exercises {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Superset framing: subtle left border in accent color to visually tie
+   grouped exercises together */
+.block.superset .block-exercises {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  border-radius: 2px;
+}
+
+/* ---- Exercise card ---- */
 
 .exercise {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px;
+  min-width: 0;
 }
 
 .exercise-head h2 {
   margin: 0 0 4px 0;
   font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
 }
 
 .prescribed-line {
   color: var(--muted);
   font-size: 14px;
   margin-bottom: 12px;
+}
+
+.prescribed-line strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .sets {
@@ -198,28 +261,67 @@ main {
 .log-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 12px;
   background: var(--surface-2);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.log-form label {
+.log-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
   color: var(--muted);
+  min-width: 0;
 }
 
 .log-form input {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 10px 12px;
   font-size: 16px;
   color: var(--text);
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.log-form input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.weight-chips {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.chip:active {
+  background: var(--accent);
+  color: #06283d;
+  border-color: var(--accent);
 }
 
 .form-actions {
@@ -227,6 +329,7 @@ main {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 4px;
 }
 
 .cancel-btn {

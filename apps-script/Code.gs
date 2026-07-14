@@ -159,6 +159,16 @@ Rules for using tools:
 - NEVER invent numbers — read the sheet first
 - If a tool result is empty, tell him honestly
 
+GROUPING RULES (critical — Mike sees exercises grouped by block in the app):
+Every prescribed exercise MUST have a "group" letter (A, B, C, ...). The group tells the app how to render blocks and supersets.
+- Standalone strength lift → its own letter. Bench Press alone in Block A → group: "A".
+- Superset / tri-set → all exercises share the same letter, listed in performance order.
+  Example: Block B is a superset of Weighted Pull-Up + 1-Arm DB Row → both get group: "B".
+- Conditioning finisher circuit (e.g. thrusters + KB swings + burpees performed as a round) → all share one letter.
+- Assign letters in order: first block is A, next B, next C. Do not skip letters.
+
+Weight strings for set_prescribed and log_set: accept "225", "BW", "BW + 20", "Bands", "RPE 8", or empty. Use the format that fits the movement.
+
 Dates are always YYYY-MM-DD. Today's date is in the first user message — use it as the anchor for "yesterday," "next Monday," "this week," etc.
 `;
 
@@ -219,6 +229,7 @@ function readPrescribed_(date) {
       reps: String(r[3] || '').trim(),
       weight: String(r[4] || '').trim(),
       notes: String(r[5] || '').trim(),
+      group: String(r[6] || '').trim().toUpperCase(),
       rowIndex: i + 1,
     });
   }
@@ -240,12 +251,23 @@ function readActuals_(date) {
       exercise: String(r[2] || '').trim(),
       setNumber: Number(r[3]) || 0,
       reps: Number(r[4]) || 0,
-      weight: Number(r[5]) || 0,
+      weight: normalizeWeight_(r[5]),
       notes: String(r[6] || '').trim(),
       rowIndex: i + 1,
     });
   }
   return out;
+}
+
+// Weight can be a number (225), a string ("BW", "Bands", "BW+20"), or empty.
+// Preserve strings as-is; return numbers as numbers so charts still work.
+function normalizeWeight_(v) {
+  if (v === '' || v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  const s = String(v).trim();
+  if (!s) return 0;
+  const asNum = Number(s);
+  return isNaN(asNum) ? s : asNum;
 }
 
 function readActualsRange_(startDate, endDate) {
@@ -263,7 +285,7 @@ function readActualsRange_(startDate, endDate) {
       exercise: String(r[2] || '').trim(),
       setNumber: Number(r[3]) || 0,
       reps: Number(r[4]) || 0,
-      weight: Number(r[5]) || 0,
+      weight: normalizeWeight_(r[5]),
     });
   }
   out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.setNumber - b.setNumber; });
@@ -273,13 +295,22 @@ function readActualsRange_(startDate, endDate) {
 function appendActual_(body) {
   const sheet = SpreadsheetApp.getActive().getSheetByName(ACTUALS_SHEET);
   if (!sheet) throw new Error('Missing sheet: ' + ACTUALS_SHEET);
+  // Weight can be numeric (225) or string ("BW", "Bands", "BW+20"). Keep numeric
+  // when the user entered a number so charts still work; otherwise store text.
+  let weight = body.weight;
+  if (typeof weight === 'string') {
+    const asNum = Number(weight.trim());
+    weight = isNaN(asNum) || weight.trim() === '' ? weight : asNum;
+  } else if (typeof weight !== 'number') {
+    weight = 0;
+  }
   const row = [
     new Date(),
     body.date || todayIso_(),
     body.exercise || '',
     Number(body.setNumber) || 0,
     Number(body.reps) || 0,
-    Number(body.weight) || 0,
+    weight,
     body.notes || '',
   ];
   sheet.appendRow(row);
@@ -298,6 +329,9 @@ function deleteActual_(body) {
 function replacePrescribed_(date, exercises) {
   const sheet = SpreadsheetApp.getActive().getSheetByName(PRESCRIBED_SHEET);
   if (!sheet) throw new Error('Missing sheet: ' + PRESCRIBED_SHEET);
+  // Ensure the Group header exists in column G for existing sheets.
+  const header = sheet.getRange(1, 7).getValue();
+  if (!header) sheet.getRange(1, 7).setValue('Group');
   const values = sheet.getDataRange().getValues();
   // Delete existing rows for this date, bottom-up so indices stay valid.
   for (let i = values.length - 1; i >= 1; i--) {
@@ -314,6 +348,7 @@ function replacePrescribed_(date, exercises) {
       String(ex.reps || '').trim(),
       String(ex.weight || '').trim(),
       String(ex.notes || '').trim(),
+      String(ex.group || 'A').trim().toUpperCase(),
     ]);
   }
   return { date: date, count: exercises.length };
@@ -436,24 +471,25 @@ function romanTools_() {
     },
     {
       name: 'set_prescribed',
-      description: 'Write the prescribed workout for a date. Replaces any existing prescribed rows for that date. Use when Mike asks you to program or plan a workout.',
+      description: 'Write the prescribed workout for a date. Replaces any existing prescribed rows for that date. Use when Mike asks you to program or plan a workout. Group exercises into blocks using the "group" letter: same letter = same block / superset.',
       input_schema: {
         type: 'object',
         properties: {
           date: { type: 'string', description: 'Date YYYY-MM-DD' },
           exercises: {
             type: 'array',
-            description: 'Ordered list of exercises for that day',
+            description: 'Ordered list of exercises for that day, in the order Mike should perform them.',
             items: {
               type: 'object',
               properties: {
                 exercise: { type: 'string' },
                 sets: { type: 'integer', description: 'Number of working sets' },
                 reps: { type: 'string', description: 'e.g. "5" or "8-10" or "AMRAP"' },
-                weight: { type: 'string', description: 'e.g. "225" or "bodyweight" or "RPE 8"' },
-                notes: { type: 'string' },
+                weight: { type: 'string', description: 'e.g. "225", "BW", "BW + 20", "Bands", or "RPE 8"' },
+                notes: { type: 'string', description: 'Coaching cue or rest time. Keep it short.' },
+                group: { type: 'string', description: 'Single uppercase letter (A, B, C, ...) identifying which block this exercise belongs to. Multiple exercises sharing the same letter form a superset / tri-set and should be performed alternating. Standalone lifts get their own letter.' },
               },
-              required: ['exercise'],
+              required: ['exercise', 'group'],
             },
           },
         },
@@ -469,7 +505,7 @@ function romanTools_() {
           date: { type: 'string', description: 'Date YYYY-MM-DD' },
           exercise: { type: 'string' },
           reps: { type: 'integer' },
-          weight: { type: 'number' },
+          weight: { type: 'string', description: 'Weight lifted. Numeric string like "225" for weight, or text like "BW", "BW + 20", "Bands".' },
         },
         required: ['date', 'exercise', 'reps', 'weight'],
       },
@@ -570,8 +606,11 @@ function setupSheets() {
   let prescribed = ss.getSheetByName(PRESCRIBED_SHEET);
   if (!prescribed) prescribed = ss.insertSheet(PRESCRIBED_SHEET);
   if (prescribed.getLastRow() === 0) {
-    prescribed.appendRow(['Date', 'Exercise', 'Sets', 'Reps', 'Weight', 'Notes']);
+    prescribed.appendRow(['Date', 'Exercise', 'Sets', 'Reps', 'Weight', 'Notes', 'Group']);
     prescribed.setFrozenRows(1);
+  } else if (!prescribed.getRange(1, 7).getValue()) {
+    // Existing sheet — add the Group header if missing.
+    prescribed.getRange(1, 7).setValue('Group');
   }
   let actuals = ss.getSheetByName(ACTUALS_SHEET);
   if (!actuals) actuals = ss.insertSheet(ACTUALS_SHEET);

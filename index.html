@@ -58,6 +58,16 @@
     </button>
   </nav>
 
+  <template id="blockTemplate">
+    <section class="block">
+      <header class="block-head">
+        <span class="block-letter"></span>
+        <span class="block-kind"></span>
+      </header>
+      <div class="block-exercises"></div>
+    </section>
+  </template>
+
   <template id="exerciseTemplate">
     <section class="exercise">
       <header class="exercise-head">
@@ -73,14 +83,20 @@
 
   <template id="logFormTemplate">
     <form class="log-form">
-      <label>
+      <label class="log-field">
         <span>Reps</span>
         <input type="number" name="reps" inputmode="numeric" min="0" required />
       </label>
-      <label>
+      <label class="log-field">
         <span>Weight</span>
-        <input type="number" name="weight" inputmode="decimal" step="0.5" min="0" required />
+        <input type="text" name="weight" inputmode="decimal" autocomplete="off" placeholder="lbs, BW, Bands" required />
       </label>
+      <div class="weight-chips">
+        <button type="button" class="chip" data-weight="BW">BW</button>
+        <button type="button" class="chip" data-weight="BW + 10">BW+10</button>
+        <button type="button" class="chip" data-weight="BW + 20">BW+20</button>
+        <button type="button" class="chip" data-weight="Bands">Bands</button>
+      </div>
       <div class="form-actions">
         <button type="button" class="cancel-btn">Cancel</button>
         <button type="submit" class="save-btn">Save set</button>

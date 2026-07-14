@@ -8,6 +8,7 @@
   const statusEl = document.getElementById('status');
   const workoutEl = document.getElementById('workout');
   const setupBanner = document.getElementById('setupBanner');
+  const blockTpl = document.getElementById('blockTemplate');
   const exerciseTpl = document.getElementById('exerciseTemplate');
   const logFormTpl = document.getElementById('logFormTemplate');
 
@@ -86,10 +87,13 @@
     state.loading = true;
     setStatus('Loading…');
     try {
+      // Preserve any in-flight optimistic sets so they don't disappear if
+      // loadDay runs while a save is still pending.
+      const pending = state.actuals.filter((a) => a.pending && a.date === date);
       const data = await apiGet({ action: 'getWorkout', date: date });
       state.date = data.date;
       state.prescribed = data.prescribed || [];
-      state.actuals = data.actuals || [];
+      state.actuals = (data.actuals || []).concat(pending);
       setStatus('');
       render();
     } catch (err) {
@@ -118,12 +122,60 @@
     if (exercises.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = 'No workout prescribed for this day yet. Add rows in the Prescribed tab of the sheet.';
+      empty.textContent = 'Nothing prescribed for this day yet. Ask Roman to plan it.';
       workoutEl.appendChild(empty);
       return;
     }
 
-    exercises.forEach((ex) => workoutEl.appendChild(renderExercise(ex)));
+    // Group exercises by block letter. Exercises without a group letter fall
+    // into their own singleton block so legacy data still renders sensibly.
+    const blocks = groupByBlock(exercises);
+    blocks.forEach((block) => workoutEl.appendChild(renderBlock(block)));
+  }
+
+  function groupByBlock(exercises) {
+    const blocks = [];
+    let anonymousCounter = 0;
+    let currentKey = null;
+    let currentBlock = null;
+    exercises.forEach((ex) => {
+      const key = ex.group ? ex.group.toUpperCase() : '__' + (anonymousCounter++);
+      if (key !== currentKey) {
+        currentKey = key;
+        currentBlock = { key: key, letter: ex.group ? ex.group.toUpperCase() : '', exercises: [] };
+        blocks.push(currentBlock);
+      }
+      currentBlock.exercises.push(ex);
+    });
+    // Backfill sequential letters (A, B, C…) for the display when no group was set.
+    let displayIdx = 0;
+    blocks.forEach((b) => {
+      if (!b.letter) b.letter = String.fromCharCode(65 + displayIdx++);
+      else displayIdx = Math.max(displayIdx, b.letter.charCodeAt(0) - 64);
+    });
+    return blocks;
+  }
+
+  function renderBlock(block) {
+    const node = blockTpl.content.firstElementChild.cloneNode(true);
+    node.querySelector('.block-letter').textContent = block.letter;
+
+    const kindEl = node.querySelector('.block-kind');
+    const count = block.exercises.length;
+    if (count === 1) {
+      kindEl.textContent = '';
+      kindEl.hidden = true;
+    } else if (count === 2) {
+      kindEl.textContent = 'Superset';
+      node.classList.add('superset');
+    } else {
+      kindEl.textContent = count + '-set circuit';
+      node.classList.add('superset');
+    }
+
+    const container = node.querySelector('.block-exercises');
+    block.exercises.forEach((ex) => container.appendChild(renderExercise(ex)));
+    return node;
   }
 
   function renderExercise(prescribed) {
@@ -135,10 +187,10 @@
       line.textContent = '(logged outside prescription)';
     } else {
       const parts = [];
-      if (prescribed.sets) parts.push(`${prescribed.sets} sets`);
-      if (prescribed.reps) parts.push(`${prescribed.reps} reps`);
-      if (prescribed.weight) parts.push(`@ ${prescribed.weight}`);
-      line.textContent = parts.join(' × ') || '—';
+      if (prescribed.sets) parts.push(`<strong>${prescribed.sets}</strong> sets`);
+      if (prescribed.reps) parts.push(`<strong>${prescribed.reps}</strong> reps`);
+      if (prescribed.weight) parts.push(`@ <strong>${escapeHtml(String(prescribed.weight))}</strong>`);
+      line.innerHTML = parts.join(' × ') || '—';
       if (prescribed.notes) {
         const small = document.createElement('div');
         small.style.marginTop = '4px';
@@ -158,48 +210,89 @@
     logBtn.addEventListener('click', () => {
       logBtn.disabled = true;
       const form = logFormTpl.content.firstElementChild.cloneNode(true);
-
-      const lastLogged = logged[logged.length - 1];
       const repsInput = form.querySelector('input[name="reps"]');
       const weightInput = form.querySelector('input[name="weight"]');
+
+      // Prefill from last logged set, or from prescription.
+      const currentLogged = actualsForExercise(prescribed.exercise);
+      const lastLogged = currentLogged[currentLogged.length - 1];
       if (lastLogged) {
         repsInput.value = lastLogged.reps;
-        weightInput.value = lastLogged.weight;
+        weightInput.value = String(lastLogged.weight);
       } else if (!prescribed.adHoc) {
         const repsGuess = parseInt(String(prescribed.reps).match(/\d+/) || [], 10);
-        const weightGuess = parseFloat(String(prescribed.weight).match(/[\d.]+/) || []);
         if (!isNaN(repsGuess)) repsInput.value = repsGuess;
-        if (!isNaN(weightGuess)) weightInput.value = weightGuess;
+        if (prescribed.weight) weightInput.value = String(prescribed.weight);
       }
+
+      // Weight chips populate the field.
+      form.querySelectorAll('.chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          weightInput.value = chip.dataset.weight;
+          weightInput.focus();
+        });
+      });
 
       form.querySelector('.cancel-btn').addEventListener('click', () => {
         form.remove();
         logBtn.disabled = false;
       });
 
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener('submit', (e) => {
         e.preventDefault();
         const reps = Number(repsInput.value);
-        const weight = Number(weightInput.value);
-        const setNumber = logged.length + 1;
-        const payload = {
+        const weightRaw = String(weightInput.value).trim();
+        if (!weightRaw) {
+          weightInput.focus();
+          return;
+        }
+        // Numeric strings go as numbers; anything else stays a string.
+        const asNum = Number(weightRaw);
+        const weight = isNaN(asNum) ? weightRaw : asNum;
+
+        const setNumber = actualsForExercise(prescribed.exercise).length + 1;
+        // Optimistic: append the set locally IMMEDIATELY and re-render this
+        // exercise. Fire the API call in the background.
+        const optimistic = {
+          loggedAt: new Date().toISOString(),
+          date: state.date,
+          exercise: prescribed.exercise,
+          setNumber: setNumber,
+          reps: reps,
+          weight: weight,
+          notes: '',
+          rowIndex: null,     // will be assigned by server
+          pending: true,      // marks the row as in-flight
+          clientId: 'p' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+        };
+        state.actuals.push(optimistic);
+        form.remove();
+        logBtn.disabled = false;
+        render();
+
+        // Background save.
+        apiPost({
           action: 'logSet',
           date: state.date,
           exercise: prescribed.exercise,
           setNumber: setNumber,
           reps: reps,
           weight: weight,
-        };
-        form.querySelector('.save-btn').disabled = true;
-        setStatus('Saving set…');
-        try {
-          await apiPost(payload);
-          setStatus('');
-          await loadDay(state.date);
-        } catch (err) {
+        }).then((data) => {
+          // Replace the pending row with a confirmed one.
+          const target = state.actuals.find((a) => a.clientId === optimistic.clientId);
+          if (target) {
+            target.pending = false;
+            if (data && data.row && data.row.rowIndex) target.rowIndex = data.row.rowIndex;
+          }
+          render();
+        }).catch((err) => {
+          // Drop the failed pending row and surface the error.
+          state.actuals = state.actuals.filter((a) => a.clientId !== optimistic.clientId);
+          render();
           setStatus('Failed to save: ' + err.message, true);
-          form.querySelector('.save-btn').disabled = false;
-        }
+          setTimeout(() => setStatus(''), 4000);
+        });
       });
 
       actionsEl.before(form);
@@ -211,27 +304,40 @@
 
   function renderSet(actual) {
     const row = document.createElement('div');
-    row.className = 'set-row';
+    row.className = 'set-row' + (actual.pending ? ' pending' : '');
     const left = document.createElement('div');
-    left.innerHTML = `<strong>Set ${actual.setNumber}</strong> · ${actual.reps} reps @ ${actual.weight}`;
+    left.innerHTML = `<strong>Set ${actual.setNumber}</strong> · ${actual.reps} reps @ ${escapeHtml(String(actual.weight))}`;
     const right = document.createElement('button');
     right.className = 'delete-btn';
     right.setAttribute('aria-label', 'Delete set');
     right.textContent = '×';
-    right.addEventListener('click', async () => {
+    right.addEventListener('click', () => {
       if (!confirm('Delete this set?')) return;
-      setStatus('Deleting…');
-      try {
-        await apiPost({ action: 'deleteSet', rowIndex: actual.rowIndex });
-        setStatus('');
-        await loadDay(state.date);
-      } catch (err) {
+      // Optimistic delete: remove locally immediately, then reconcile.
+      const clientId = actual.clientId;
+      const rowIndex = actual.rowIndex;
+      state.actuals = state.actuals.filter((a) => a !== actual);
+      render();
+      if (!rowIndex) return; // pending row that never made it to the server
+      apiPost({ action: 'deleteSet', rowIndex: rowIndex }).catch((err) => {
+        state.actuals.push(actual);
+        render();
         setStatus('Failed to delete: ' + err.message, true);
-      }
+        setTimeout(() => setStatus(''), 4000);
+      });
     });
     row.appendChild(left);
     row.appendChild(right);
     return row;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   dateInput.addEventListener('change', () => {
