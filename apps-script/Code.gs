@@ -438,6 +438,19 @@ function json_(obj) {
 }
 
 /**
+ * Run this ONCE from the Apps Script editor to grant this script permission
+ * to reach the Anthropic API. Google requires you to explicitly authorize
+ * any script that makes outbound HTTP calls.
+ *
+ * Pick "authorize" in the function dropdown, click Run, and approve the
+ * permission dialog that pops up. The function will error out at the fetch
+ * — that's expected and fine. Its only job is to trigger the prompt.
+ */
+function authorize() {
+  UrlFetchApp.fetch('https://example.com');
+}
+
+/**
  * Run this once from the Apps Script editor to bootstrap an empty
  * spreadsheet with the two tabs and header rows.
  */
