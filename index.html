@@ -22,32 +22,38 @@
   </header>
 
   <main id="main">
-    <div id="status" class="status"></div>
-    <div id="workout" class="workout"></div>
+    <section id="workoutPanel" class="panel active">
+      <div id="setupBanner" class="setup-banner" hidden>
+        <strong>Setup needed.</strong> Open <code>config.js</code> and paste your
+        Google Apps Script Web App URL into <code>APPS_SCRIPT_URL</code>.
+      </div>
+      <div id="status" class="status"></div>
+      <div id="workout" class="workout"></div>
+    </section>
+
+    <section id="romanPanel" class="panel" hidden>
+      <div id="romanMessages" class="roman-messages"></div>
+    </section>
   </main>
 
-  <div id="setupBanner" class="setup-banner" hidden>
-    <strong>Setup needed.</strong> Open <code>config.js</code> and paste your
-    Google Apps Script Web App URL into <code>APPS_SCRIPT_URL</code>.
-  </div>
-
-  <button id="romanFab" class="roman-fab" aria-label="Talk to Roman">R</button>
-
-  <div id="romanDrawer" class="roman-drawer" hidden>
-    <header class="roman-head">
-      <div>
-        <strong>Roman</strong>
-        <span class="roman-sub">your coach</span>
-      </div>
-      <button id="romanClose" class="roman-close" aria-label="Close">×</button>
-    </header>
-    <div id="romanMessages" class="roman-messages"></div>
+  <div id="romanBar" class="roman-bar" hidden>
     <form id="romanForm" class="roman-form">
       <button type="button" id="romanMic" class="roman-mic" aria-label="Voice input">🎤</button>
       <textarea id="romanInput" rows="1" placeholder="Ask Roman anything…" required></textarea>
       <button type="submit" class="roman-send" id="romanSend">Send</button>
     </form>
   </div>
+
+  <nav class="bottom-nav">
+    <button class="tab-btn active" data-tab="workout" id="tabWorkout">
+      <span class="tab-icon">🏋️</span>
+      <span class="tab-label">Workout</span>
+    </button>
+    <button class="tab-btn" data-tab="roman" id="tabRoman">
+      <span class="tab-icon">💬</span>
+      <span class="tab-label">Roman</span>
+    </button>
+  </nav>
 
   <template id="exerciseTemplate">
     <section class="exercise">

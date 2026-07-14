@@ -49,16 +49,30 @@
     return data;
   }
 
-  async function apiPost(body) {
-    const res = await fetch(window.APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'Unknown error');
-    return data;
+  async function apiPost(body, opts) {
+    opts = opts || {};
+    const timeoutMs = opts.timeoutMs || 30000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(window.APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Unknown error');
+      return data;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error('Timed out after ' + Math.round(timeoutMs / 1000) + 's. Try a shorter message or try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   async function loadDay(date) {
@@ -240,13 +254,17 @@
 
   /* ================= Roman chat ================= */
 
-  const romanFab = document.getElementById('romanFab');
-  const romanDrawer = document.getElementById('romanDrawer');
-  const romanClose = document.getElementById('romanClose');
+  const romanBar = document.getElementById('romanBar');
+  const romanPanel = document.getElementById('romanPanel');
+  const workoutPanel = document.getElementById('workoutPanel');
+  const tabWorkout = document.getElementById('tabWorkout');
+  const tabRoman = document.getElementById('tabRoman');
   const romanMessages = document.getElementById('romanMessages');
   const romanForm = document.getElementById('romanForm');
   const romanInput = document.getElementById('romanInput');
   const romanSend = document.getElementById('romanSend');
+
+  let romanHistoryRendered = false;
 
   // Persist Roman's conversation across page loads so context isn't lost when
   // Mike closes the tab mid-conversation.
@@ -306,15 +324,36 @@
     romanMessages.scrollTop = romanMessages.scrollHeight;
   }
 
-  romanFab.addEventListener('click', () => {
-    romanDrawer.hidden = false;
-    renderRomanHistory();
-    setTimeout(() => romanInput.focus(), 50);
-  });
+  function switchTab(tab) {
+    if (tab === 'roman') {
+      workoutPanel.hidden = true;
+      romanPanel.hidden = false;
+      romanBar.hidden = false;
+      tabWorkout.classList.remove('active');
+      tabRoman.classList.add('active');
+      if (!romanHistoryRendered) {
+        renderRomanHistory();
+        romanHistoryRendered = true;
+      }
+      scrollRomanToBottom();
+      setTimeout(() => romanInput.focus(), 50);
+    } else {
+      romanPanel.hidden = true;
+      workoutPanel.hidden = false;
+      romanBar.hidden = true;
+      tabRoman.classList.remove('active');
+      tabWorkout.classList.add('active');
+      // Stop mic if user switches tabs while it's listening.
+      if (typeof userWantsListening !== 'undefined' && userWantsListening && recognition) {
+        userWantsListening = false;
+        try { recognition.stop(); } catch (err) { /* ignore */ }
+        setMicUI(false);
+      }
+    }
+  }
 
-  romanClose.addEventListener('click', () => {
-    romanDrawer.hidden = true;
-  });
+  tabWorkout.addEventListener('click', () => switchTab('workout'));
+  tabRoman.addEventListener('click', () => switchTab('roman'));
 
   romanInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -458,9 +497,9 @@
       const data = await apiPost({
         action: 'chat',
         userMessage: text,
-        today: state.date || todayIso(),
+        today: todayIso(),
         messages: priorForRequest,
-      });
+      }, { timeoutMs: 120000 });
       thinking.remove();
       const reply = data.reply || '(no reply)';
       appendRomanBubble('assistant', reply);

@@ -21,17 +21,18 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 body {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  flex-direction: column;
 }
 
 .topbar {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -74,9 +75,26 @@ body {
 .nav-btn:active, .refresh-btn:active { background: var(--surface-2); }
 
 main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel {
   padding: 16px;
   max-width: 640px;
   margin: 0 auto;
+}
+
+.panel[hidden] { display: none; }
+
+#romanPanel {
+  padding: 0;
+  max-width: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .status {
@@ -239,90 +257,48 @@ main {
   color: var(--muted);
 }
 
-/* ================= Roman chat ================= */
+/* ================= Bottom tab nav ================= */
 
-.roman-fab {
-  position: fixed;
-  right: 20px;
-  bottom: calc(20px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f97316, #ea580c);
-  color: white;
-  border: none;
-  font-size: 22px;
-  font-weight: 700;
-  font-style: italic;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-  z-index: 20;
+.bottom-nav {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
 }
 
-.roman-fab:active { transform: scale(0.95); }
-
-.roman-drawer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: 0;
-  background: var(--bg);
-  z-index: 30;
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-@media (min-width: 640px) {
-  .roman-drawer {
-    left: auto;
-    top: auto;
-    right: 20px;
-    bottom: 20px;
-    width: 420px;
-    height: 70vh;
-    max-height: 640px;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    border: 1px solid var(--border);
-  }
-}
-
-.roman-head {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  gap: 2px;
+  font-family: inherit;
 }
 
-.roman-head strong { font-size: 16px; }
-.roman-sub {
-  color: var(--muted);
-  font-size: 13px;
-  margin-left: 8px;
-}
+.tab-btn .tab-icon { font-size: 22px; }
+.tab-btn.active { color: var(--accent); }
+.tab-btn:active { background: var(--surface-2); }
 
-.roman-close {
-  background: transparent;
-  color: var(--text);
-  border: none;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 4px 10px;
-}
+/* ================= Roman chat ================= */
 
 .roman-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 12px 4px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .roman-msg {
@@ -362,12 +338,18 @@ main {
   font-size: 13px;
 }
 
+.roman-bar {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.roman-bar[hidden] { display: none; }
+
 .roman-form {
   display: flex;
   gap: 8px;
   padding: 10px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .roman-form textarea {
