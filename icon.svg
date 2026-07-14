@@ -1,10 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0f172a"/>
-  <g fill="#38bdf8">
-    <rect x="80" y="232" width="48" height="48" rx="12"/>
-    <rect x="384" y="232" width="48" height="48" rx="12"/>
-    <rect x="136" y="200" width="32" height="112" rx="10"/>
-    <rect x="344" y="200" width="32" height="112" rx="10"/>
-    <rect x="176" y="240" width="160" height="32" rx="8"/>
+  <rect width="512" height="512" rx="96" fill="#05050f"/>
+
+  <!-- Dumbbell in royal blue (background layer) -->
+  <g fill="#1E56FF">
+    <rect x="72" y="228" width="52" height="56" rx="14"/>
+    <rect x="388" y="228" width="52" height="56" rx="14"/>
+    <rect x="128" y="196" width="36" height="120" rx="12"/>
+    <rect x="348" y="196" width="36" height="120" rx="12"/>
+    <rect x="164" y="240" width="184" height="32" rx="8"/>
   </g>
+
+  <!-- Lightning bolt slashing diagonally over the bar (foreground) -->
+  <path fill="#F5F5FA" stroke="#05050f" stroke-width="10" stroke-linejoin="round"
+        d="M308 80 L168 288 L248 288 L204 432 L344 224 L264 224 L308 80 Z"/>
 </svg>

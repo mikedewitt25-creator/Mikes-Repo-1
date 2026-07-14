@@ -1,14 +1,17 @@
 :root {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface-2: #273449;
-  --border: #334155;
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --accent: #38bdf8;
-  --accent-strong: #0ea5e9;
+  /* AFA Falcon palette — royal blue, black, dark gray, white accents */
+  --bg: #05050f;
+  --surface: #0F0F1E;
+  --surface-2: #191932;
+  --border: #23234A;
+  --text: #F0F0F5;
+  --muted: #7A85A5;
+  --accent: #1E56FF;
+  --accent-strong: #003594;
+  --accent-glow: rgba(30, 86, 255, 0.35);
   --success: #22c55e;
   --danger: #ef4444;
+  --warn: #fbbf24;
 }
 
 * { box-sizing: border-box; }
@@ -18,7 +21,7 @@ html, body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   height: 100vh;
@@ -31,23 +34,48 @@ body {
   flex-direction: column;
 }
 
+/* ================= Top bar with brand ================= */
+
 .topbar {
   flex-shrink: 0;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  padding-top: calc(12px + env(safe-area-inset-top));
-  background: var(--bg);
+  gap: 10px;
+  padding: 10px 14px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: linear-gradient(180deg, #0a0a1a 0%, #05050f 100%);
   border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.brand-bolt {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.brand-name {
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--text);
 }
 
 .date-picker {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
 }
 
 .date-picker input[type="date"] {
@@ -55,9 +83,10 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 16px;
+  padding: 7px 10px;
+  font-size: 14px;
   font-family: inherit;
+  min-width: 0;
 }
 
 .nav-btn, .refresh-btn {
@@ -65,14 +94,21 @@ body {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 18px;
+  padding: 6px 10px;
+  font-size: 16px;
   cursor: pointer;
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 36px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.refresh-btn svg { width: 18px; height: 18px; }
+
 .nav-btn:active, .refresh-btn:active { background: var(--surface-2); }
+
+/* ================= Main content ================= */
 
 main {
   flex: 1;
@@ -101,9 +137,9 @@ main {
 
 .status {
   color: var(--muted);
-  font-size: 14px;
-  padding: 8px 4px;
-  min-height: 28px;
+  font-size: 13px;
+  padding: 6px 4px;
+  min-height: 24px;
 }
 
 .status.error { color: var(--danger); }
@@ -113,25 +149,27 @@ main {
   color: #fde68a;
   border: 1px solid #b45309;
   padding: 12px 16px;
-  margin: 16px;
+  margin-bottom: 12px;
   border-radius: 8px;
   font-size: 14px;
   line-height: 1.4;
 }
 
 .setup-banner code {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0,0,0,0.35);
   padding: 1px 6px;
   border-radius: 4px;
 }
 
+/* ================= Workout view ================= */
+
 .workout {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
-/* ---- Block (grouping of exercises: solo strength, superset, tri-set) ---- */
+/* Block: grouping of exercises with a big banner header */
 
 .block {
   display: flex;
@@ -141,31 +179,37 @@ main {
 
 .block-head {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 0 4px;
-}
-
-.block-letter {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #06283d;
-  font-weight: 700;
-  font-size: 14px;
-  flex-shrink: 0;
+  gap: 10px;
+  padding: 0 2px 6px;
 }
 
 .block-kind {
-  color: var(--muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 1.8px;
+  color: var(--accent);
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(30, 86, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.block-num {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.block-hr {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+  margin-left: 4px;
 }
 
 .block-exercises {
@@ -174,15 +218,14 @@ main {
   gap: 10px;
 }
 
-/* Superset framing: subtle left border in accent color to visually tie
-   grouped exercises together */
+/* Visual tie for supersets: colored left rail down the group */
 .block.superset .block-exercises {
   border-left: 3px solid var(--accent);
-  padding-left: 10px;
-  border-radius: 2px;
+  padding-left: 12px;
+  position: relative;
 }
 
-/* ---- Exercise card ---- */
+/* Exercise card */
 
 .exercise {
   background: var(--surface);
@@ -197,6 +240,7 @@ main {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.2px;
+  color: var(--text);
 }
 
 .prescribed-line {
@@ -207,7 +251,7 @@ main {
 
 .prescribed-line strong {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .sets {
@@ -222,23 +266,26 @@ main {
   align-items: center;
   justify-content: space-between;
   background: var(--surface-2);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 15px;
 }
 
-.set-row .set-meta { color: var(--muted); font-size: 13px; }
-
 .set-row .delete-btn {
   background: transparent;
   color: var(--muted);
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   padding: 0 4px;
+  line-height: 1;
 }
 
-.set-row.pending { opacity: 0.55; }
+.set-row.pending {
+  opacity: 0.55;
+  border-color: var(--warn);
+}
 
 .exercise-actions {
   display: flex;
@@ -247,16 +294,21 @@ main {
 
 .log-btn {
   background: var(--accent);
-  color: #06283d;
+  color: white;
   border: none;
   border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   cursor: pointer;
+  box-shadow: 0 2px 8px var(--accent-glow);
 }
 
 .log-btn:active { background: var(--accent-strong); }
+.log-btn:disabled { opacity: 0.5; box-shadow: none; }
+
+/* Log form */
 
 .log-form {
   display: grid;
@@ -264,6 +316,7 @@ main {
   gap: 10px;
   margin-bottom: 12px;
   background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
   min-width: 0;
@@ -275,8 +328,11 @@ main {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
   min-width: 0;
 }
 
@@ -290,6 +346,9 @@ main {
   width: 100%;
   min-width: 0;
   font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 
 .log-form input:focus {
@@ -320,7 +379,7 @@ main {
 
 .chip:active {
   background: var(--accent);
-  color: #06283d;
+  color: white;
   border-color: var(--accent);
 }
 
@@ -338,6 +397,7 @@ main {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 14px;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -346,8 +406,9 @@ main {
   color: #052e16;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
+  padding: 8px 16px;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -360,7 +421,7 @@ main {
   color: var(--muted);
 }
 
-/* ================= Bottom tab nav ================= */
+/* ================= Bottom tab nav (Material-style) ================= */
 
 .bottom-nav {
   flex-shrink: 0;
@@ -376,20 +437,45 @@ main {
   background: transparent;
   color: var(--muted);
   border: none;
-  padding: 10px 4px;
-  font-size: 12px;
+  padding: 10px 4px 8px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.4px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   font-family: inherit;
+  position: relative;
+  transition: color 0.15s ease;
 }
 
-.tab-btn .tab-icon { font-size: 22px; }
+.tab-icon {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.15s ease;
+}
+
 .tab-btn.active { color: var(--accent); }
-.tab-btn:active { background: var(--surface-2); }
+.tab-btn.active .tab-icon { transform: scale(1.05); }
+
+.tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 0 0 2px 2px;
+  transform: scaleX(0);
+  transition: transform 0.15s ease;
+  transform-origin: center;
+}
+
+.tab-btn.active .tab-indicator { transform: scaleX(1); }
+
+.tab-btn:active { background: rgba(30, 86, 255, 0.08); }
 
 /* ================= Roman chat ================= */
 
@@ -442,7 +528,7 @@ main {
 .roman-msg.user {
   align-self: flex-end;
   background: var(--accent);
-  color: #06283d;
+  color: white;
   border-bottom-right-radius: 4px;
 }
 
@@ -495,11 +581,12 @@ main {
 
 .roman-send {
   background: var(--accent);
-  color: #06283d;
+  color: white;
   border: none;
   border-radius: 10px;
   padding: 0 16px;
-  font-weight: 600;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
   font-size: 15px;
 }
@@ -519,7 +606,12 @@ main {
   font-size: 20px;
   cursor: pointer;
   align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+
+.roman-mic svg { width: 20px; height: 20px; }
 
 .roman-mic:disabled {
   opacity: 0.4;
@@ -536,4 +628,174 @@ main {
 @keyframes roman-mic-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
   50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* ================= Trends tab ================= */
+
+.trends-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.trends-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.trend-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.trend-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--accent);
+}
+
+.trend-stat-value {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.trend-stat-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.trend-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.trend-section h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  font-weight: 800;
+}
+
+/* Weekly bars: horizontal bars, one row per week */
+
+.weekly-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.week-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.week-bar-track {
+  height: 20px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.week-bar-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.week-bar-fill.target-hit {
+  background: linear-gradient(90deg, var(--accent), #4a7dff);
+}
+
+.week-count {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  text-align: right;
+}
+
+/* Top lifts list */
+
+.top-lifts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-lift {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.top-lift-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-lift-value {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 700;
+  text-align: right;
+  min-width: 80px;
+}
+
+.top-lift-value small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.top-lift-trend {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+}
+
+.trend-up { color: var(--success); }
+.trend-down { color: var(--danger); }
+.trend-flat { color: var(--muted); }
+
+.trend-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 12px 0;
+  font-size: 13px;
 }

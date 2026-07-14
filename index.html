@@ -3,22 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#05050f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Lift" />
   <title>Lift — Workout Tracker</title>
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
+    <div class="brand">
+      <svg class="brand-bolt" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L14 2H13Z"/>
+      </svg>
+      <span class="brand-name">LIFT</span>
+    </div>
     <div class="date-picker">
       <button class="nav-btn" id="prevDay" aria-label="Previous day">‹</button>
       <input type="date" id="dateInput" />
       <button class="nav-btn" id="nextDay" aria-label="Next day">›</button>
     </div>
-    <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">↻</button>
+    <button class="refresh-btn" id="refreshBtn" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-8 3.58-8 8s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+      </svg>
+    </button>
   </header>
 
   <main id="main">
@@ -37,11 +49,20 @@
       </div>
       <div id="romanMessages" class="roman-messages"></div>
     </section>
+
+    <section id="trendsPanel" class="panel" hidden>
+      <div id="trendsStatus" class="status"></div>
+      <div id="trendsContent" class="trends-content"></div>
+    </section>
   </main>
 
   <div id="romanBar" class="roman-bar" hidden>
     <form id="romanForm" class="roman-form">
-      <button type="button" id="romanMic" class="roman-mic" aria-label="Voice input">🎤</button>
+      <button type="button" id="romanMic" class="roman-mic" aria-label="Voice input">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/>
+        </svg>
+      </button>
       <textarea id="romanInput" rows="1" placeholder="Ask Roman anything…" required></textarea>
       <button type="submit" class="roman-send" id="romanSend">Send</button>
     </form>
@@ -49,20 +70,34 @@
 
   <nav class="bottom-nav">
     <button class="tab-btn active" data-tab="workout" id="tabWorkout">
-      <span class="tab-icon">🏋️</span>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>
+      </svg>
       <span class="tab-label">Workout</span>
+      <span class="tab-indicator"></span>
+    </button>
+    <button class="tab-btn" data-tab="trends" id="tabTrends">
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+      </svg>
+      <span class="tab-label">Trends</span>
+      <span class="tab-indicator"></span>
     </button>
     <button class="tab-btn" data-tab="roman" id="tabRoman">
-      <span class="tab-icon">💬</span>
-      <span class="tab-label">Roman</span>
+      <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+      </svg>
+      <span class="tab-label">Coach</span>
+      <span class="tab-indicator"></span>
     </button>
   </nav>
 
   <template id="blockTemplate">
     <section class="block">
       <header class="block-head">
-        <span class="block-letter"></span>
         <span class="block-kind"></span>
+        <span class="block-num"></span>
+        <span class="block-hr"></span>
       </header>
       <div class="block-exercises"></div>
     </section>

@@ -180,6 +180,11 @@ function doGet(e) {
     if (action === 'getWorkout') {
       return json_({ ok: true, date: date, prescribed: readPrescribed_(date), actuals: readActuals_(date) });
     }
+    if (action === 'getRecent') {
+      const start = (e && e.parameter && e.parameter.start) || shiftIso_(todayIso_(), -60);
+      const end = (e && e.parameter && e.parameter.end) || todayIso_();
+      return json_({ ok: true, start: start, end: end, sets: readActualsRange_(start, end) });
+    }
     if (action === 'ping') {
       return json_({ ok: true, pong: true });
     }
@@ -187,6 +192,13 @@ function doGet(e) {
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+function shiftIso_(iso, days) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  const tz = Session.getScriptTimeZone();
+  return Utilities.formatDate(d, tz, 'yyyy-MM-dd');
 }
 
 function doPost(e) {

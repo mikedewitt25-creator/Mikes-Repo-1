@@ -142,36 +142,29 @@
       const key = ex.group ? ex.group.toUpperCase() : '__' + (anonymousCounter++);
       if (key !== currentKey) {
         currentKey = key;
-        currentBlock = { key: key, letter: ex.group ? ex.group.toUpperCase() : '', exercises: [] };
+        currentBlock = { key: key, exercises: [] };
         blocks.push(currentBlock);
       }
       currentBlock.exercises.push(ex);
     });
-    // Backfill sequential letters (A, B, C…) for the display when no group was set.
-    let displayIdx = 0;
-    blocks.forEach((b) => {
-      if (!b.letter) b.letter = String.fromCharCode(65 + displayIdx++);
-      else displayIdx = Math.max(displayIdx, b.letter.charCodeAt(0) - 64);
-    });
+    // Number blocks 1..N in appearance order, regardless of group letter.
+    blocks.forEach((b, i) => { b.number = i + 1; });
     return blocks;
   }
 
   function renderBlock(block) {
     const node = blockTpl.content.firstElementChild.cloneNode(true);
-    node.querySelector('.block-letter').textContent = block.letter;
-
-    const kindEl = node.querySelector('.block-kind');
     const count = block.exercises.length;
-    if (count === 1) {
-      kindEl.textContent = '';
-      kindEl.hidden = true;
-    } else if (count === 2) {
-      kindEl.textContent = 'Superset';
-      node.classList.add('superset');
-    } else {
-      kindEl.textContent = count + '-set circuit';
-      node.classList.add('superset');
-    }
+    const kindEl = node.querySelector('.block-kind');
+    const numEl = node.querySelector('.block-num');
+    let label;
+    if (count === 1) label = 'Strength';
+    else if (count === 2) label = 'Superset';
+    else if (count === 3) label = 'Tri-Set';
+    else label = count + '-Set Circuit';
+    kindEl.textContent = label;
+    numEl.textContent = block.number;
+    if (count >= 2) node.classList.add('superset');
 
     const container = node.querySelector('.block-exercises');
     block.exercises.forEach((ex) => container.appendChild(renderExercise(ex)));
@@ -363,8 +356,12 @@
   const romanBar = document.getElementById('romanBar');
   const romanPanel = document.getElementById('romanPanel');
   const workoutPanel = document.getElementById('workoutPanel');
+  const trendsPanel = document.getElementById('trendsPanel');
+  const trendsContent = document.getElementById('trendsContent');
+  const trendsStatus = document.getElementById('trendsStatus');
   const tabWorkout = document.getElementById('tabWorkout');
   const tabRoman = document.getElementById('tabRoman');
+  const tabTrends = document.getElementById('tabTrends');
   const romanMessages = document.getElementById('romanMessages');
   const romanForm = document.getElementById('romanForm');
   const romanInput = document.getElementById('romanInput');
@@ -372,6 +369,7 @@
   const romanClear = document.getElementById('romanClear');
 
   let romanHistoryRendered = false;
+  let trendsLoaded = false;
 
   // Persist Roman's conversation across page loads so context isn't lost when
   // Mike closes the tab mid-conversation.
@@ -432,11 +430,15 @@
   }
 
   function switchTab(tab) {
+    [tabWorkout, tabTrends, tabRoman].forEach((t) => t.classList.remove('active'));
+    workoutPanel.hidden = true;
+    trendsPanel.hidden = true;
+    romanPanel.hidden = true;
+    romanBar.hidden = true;
+
     if (tab === 'roman') {
-      workoutPanel.hidden = true;
       romanPanel.hidden = false;
       romanBar.hidden = false;
-      tabWorkout.classList.remove('active');
       tabRoman.classList.add('active');
       if (!romanHistoryRendered) {
         renderRomanHistory();
@@ -444,23 +446,26 @@
       }
       scrollRomanToBottom();
       setTimeout(() => romanInput.focus(), 50);
+    } else if (tab === 'trends') {
+      trendsPanel.hidden = false;
+      tabTrends.classList.add('active');
+      loadTrends();
     } else {
-      romanPanel.hidden = true;
       workoutPanel.hidden = false;
-      romanBar.hidden = true;
-      tabRoman.classList.remove('active');
       tabWorkout.classList.add('active');
-      // Stop mic if user switches tabs while it's listening.
-      if (typeof userWantsListening !== 'undefined' && userWantsListening && recognition) {
-        userWantsListening = false;
-        try { recognition.stop(); } catch (err) { /* ignore */ }
-        setMicUI(false);
-      }
+    }
+
+    // Stop mic if user switches tabs while it's listening.
+    if (tab !== 'roman' && typeof userWantsListening !== 'undefined' && userWantsListening && recognition) {
+      userWantsListening = false;
+      try { recognition.stop(); } catch (err) { /* ignore */ }
+      setMicUI(false);
     }
   }
 
   tabWorkout.addEventListener('click', () => switchTab('workout'));
   tabRoman.addEventListener('click', () => switchTab('roman'));
+  tabTrends.addEventListener('click', () => switchTab('trends'));
 
   romanClear.addEventListener('click', () => {
     if (!confirm("Clear Roman's chat history? This can't be undone.")) return;
@@ -468,6 +473,256 @@
     saveRomanHistory();
     renderRomanHistory();
   });
+
+  /* ================= Trends tab ================= */
+
+  // Movements we care about for progression tracking. Matched
+  // case-insensitively as a substring of the logged exercise name.
+  const TRACKED_LIFTS = [
+    'Back Squat', 'Front Squat', 'Bench Press', 'Power Clean',
+    'Deadlift', 'RDL', 'Pull-Up', 'Overhead Press', 'Shoulder Press',
+    'Barbell Curl', 'DB Row', 'Lunge', 'Glute Bridge',
+  ];
+
+  // Substring markers that identify a session as including cardio work.
+  const CARDIO_MARKERS = [
+    'sprint', 'run', 'bike', 'row', 'jump rope', 'burpee', 'kb swing',
+    'kettlebell swing', 'thruster', 'box jump', 'renegade row', 'broad jump',
+    'shuttle', 'hiit', 'jog', 'incline walk',
+  ];
+
+  async function loadTrends() {
+    if (!apiConfigured()) {
+      trendsStatus.textContent = 'Not connected to a sheet yet.';
+      trendsStatus.classList.add('error');
+      return;
+    }
+    if (trendsLoaded) return; // simple cache — user can reload the app to refresh
+    trendsStatus.textContent = 'Loading…';
+    trendsStatus.classList.remove('error');
+    try {
+      const end = todayIso();
+      const start = shiftDate(end, -60);
+      const data = await apiGet({ action: 'getRecent', start: start, end: end });
+      const sets = data.sets || [];
+      renderTrends(sets, start, end);
+      trendsStatus.textContent = '';
+      trendsLoaded = true;
+    } catch (err) {
+      trendsStatus.textContent = 'Failed to load: ' + err.message;
+      trendsStatus.classList.add('error');
+    }
+  }
+
+  function renderTrends(sets, startIso, endIso) {
+    trendsContent.innerHTML = '';
+
+    // 1. Sessions this week (Mon-Sun) and this month
+    const todayD = new Date(todayIso() + 'T00:00:00');
+    const monday = mondayOf(todayD);
+    const monthStart = new Date(todayD.getFullYear(), todayD.getMonth(), 1);
+
+    const daysWithSets = new Set(sets.map((s) => s.date));
+    const setsThisWeek = countDaysInRange(daysWithSets, monday, todayD);
+    const setsThisMonth = countDaysInRange(daysWithSets, monthStart, todayD);
+
+    // Cardio days: distinct dates where a cardio-marker exercise was logged.
+    const cardioDays = new Set(
+      sets
+        .filter((s) => s.exercise && CARDIO_MARKERS.some((m) => s.exercise.toLowerCase().includes(m)))
+        .map((s) => s.date)
+    );
+    const cardioThisMonth = countDaysInRange(cardioDays, monthStart, todayD);
+
+    trendsContent.appendChild(renderSummary(setsThisWeek, setsThisMonth, cardioThisMonth));
+
+    // 2. Weekly bars for last 8 weeks
+    trendsContent.appendChild(renderWeeklyBars(daysWithSets, monday));
+
+    // 3. Top lifts with trend
+    trendsContent.appendChild(renderTopLifts(sets));
+  }
+
+  function renderSummary(week, month, cardio) {
+    const wrap = document.createElement('div');
+    wrap.className = 'trends-summary';
+    wrap.appendChild(makeStat(week, 'This week'));
+    wrap.appendChild(makeStat(month, 'This month'));
+    wrap.appendChild(makeStat(cardio, 'Cardio (30d)'));
+    return wrap;
+  }
+
+  function makeStat(value, label) {
+    const el = document.createElement('div');
+    el.className = 'trend-stat';
+    const v = document.createElement('div');
+    v.className = 'trend-stat-value';
+    v.textContent = value;
+    const l = document.createElement('div');
+    l.className = 'trend-stat-label';
+    l.textContent = label;
+    el.appendChild(v);
+    el.appendChild(l);
+    return el;
+  }
+
+  function renderWeeklyBars(daysWithSets, thisMonday) {
+    const section = document.createElement('div');
+    section.className = 'trend-section';
+    const h = document.createElement('h3');
+    h.textContent = 'Weekly training (last 8 weeks)';
+    section.appendChild(h);
+
+    const bars = document.createElement('div');
+    bars.className = 'weekly-bars';
+    const TARGET = 4; // Mike's target: M/T/Th/F = 4 days/week
+
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(thisMonday);
+      weekStart.setDate(weekStart.getDate() - i * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const count = countDaysInRange(daysWithSets, weekStart, weekEnd);
+      bars.appendChild(makeWeekRow(weekStart, count, TARGET));
+    }
+    section.appendChild(bars);
+    return section;
+  }
+
+  function makeWeekRow(weekStart, count, target) {
+    const row = document.createElement('div');
+    row.className = 'week-row';
+
+    const label = document.createElement('div');
+    label.className = 'week-label';
+    label.textContent = weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    const track = document.createElement('div');
+    track.className = 'week-bar-track';
+    const fill = document.createElement('div');
+    fill.className = 'week-bar-fill' + (count >= target ? ' target-hit' : '');
+    const maxDisplay = Math.max(target, 5);
+    fill.style.width = Math.min(100, (count / maxDisplay) * 100) + '%';
+    track.appendChild(fill);
+
+    const countEl = document.createElement('div');
+    countEl.className = 'week-count';
+    countEl.textContent = count + '/' + target;
+
+    row.appendChild(label);
+    row.appendChild(track);
+    row.appendChild(countEl);
+    return row;
+  }
+
+  function renderTopLifts(sets) {
+    const section = document.createElement('div');
+    section.className = 'trend-section';
+    const h = document.createElement('h3');
+    h.textContent = 'Top lifts';
+    section.appendChild(h);
+
+    // For each tracked lift, find sessions where it was logged and compute trend.
+    const lifts = [];
+    TRACKED_LIFTS.forEach((liftName) => {
+      const matched = sets.filter((s) =>
+        s.exercise && s.exercise.toLowerCase().includes(liftName.toLowerCase()));
+      if (matched.length === 0) return;
+
+      // Group by date. For each session take the "top set" — highest numeric weight,
+      // or if all strings, the last set of that session.
+      const byDate = {};
+      matched.forEach((s) => {
+        if (!byDate[s.date]) byDate[s.date] = [];
+        byDate[s.date].push(s);
+      });
+      const dates = Object.keys(byDate).sort();
+      if (dates.length === 0) return;
+      const topSetOf = (arr) => {
+        const numeric = arr.filter((a) => typeof a.weight === 'number');
+        if (numeric.length) return numeric.reduce((m, x) => x.weight > m.weight ? x : m, numeric[0]);
+        return arr[arr.length - 1];
+      };
+      const latestDate = dates[dates.length - 1];
+      const latest = topSetOf(byDate[latestDate]);
+      const prev = dates.length >= 2 ? topSetOf(byDate[dates[dates.length - 2]]) : null;
+
+      let trend = 'flat';
+      let delta = '';
+      if (prev && typeof latest.weight === 'number' && typeof prev.weight === 'number') {
+        const d = latest.weight - prev.weight;
+        if (d > 0) { trend = 'up'; delta = '+' + d; }
+        else if (d < 0) { trend = 'down'; delta = String(d); }
+      }
+      lifts.push({
+        name: liftName,
+        latestWeight: latest.weight,
+        latestReps: latest.reps,
+        sessions: dates.length,
+        trend: trend,
+        delta: delta,
+      });
+    });
+
+    // Sort by session count descending — most-trained first
+    lifts.sort((a, b) => b.sessions - a.sessions);
+
+    if (lifts.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'trend-empty';
+      empty.textContent = 'No tracked lifts logged yet in the last 60 days.';
+      section.appendChild(empty);
+      return section;
+    }
+
+    const list = document.createElement('div');
+    list.className = 'top-lifts';
+    lifts.slice(0, 8).forEach((l) => list.appendChild(makeLiftRow(l)));
+    section.appendChild(list);
+    return section;
+  }
+
+  function makeLiftRow(lift) {
+    const row = document.createElement('div');
+    row.className = 'top-lift';
+
+    const name = document.createElement('div');
+    name.className = 'top-lift-name';
+    name.textContent = lift.name;
+
+    const val = document.createElement('div');
+    val.className = 'top-lift-value';
+    val.innerHTML = `${escapeHtml(String(lift.latestWeight))} <small>× ${lift.latestReps}</small>`;
+
+    const trend = document.createElement('div');
+    trend.className = 'top-lift-trend trend-' + lift.trend;
+    if (lift.trend === 'up') trend.textContent = '↑' + (lift.delta ? ' ' + lift.delta : '');
+    else if (lift.trend === 'down') trend.textContent = '↓' + (lift.delta ? ' ' + lift.delta : '');
+    else trend.textContent = '·';
+
+    row.appendChild(name);
+    row.appendChild(val);
+    row.appendChild(trend);
+    return row;
+  }
+
+  function mondayOf(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    const day = d.getDay(); // 0 = Sunday
+    const offset = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + offset);
+    return d;
+  }
+
+  function countDaysInRange(dateSet, start, end) {
+    let count = 0;
+    dateSet.forEach((iso) => {
+      const d = new Date(iso + 'T00:00:00');
+      if (d >= start && d <= end) count++;
+    });
+    return count;
+  }
 
   romanInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -553,13 +808,12 @@
   function setMicUI(active) {
     if (active) {
       romanMic.classList.add('listening');
-      romanMic.textContent = '⏹';
       romanMic.setAttribute('aria-label', 'Stop voice input');
     } else {
       romanMic.classList.remove('listening');
-      romanMic.textContent = '🎤';
       romanMic.setAttribute('aria-label', 'Voice input');
     }
+    // The mic SVG stays visible either way — red pulse signals recording.
   }
 
   romanMic.addEventListener('click', () => {
