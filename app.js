@@ -200,25 +200,35 @@
     const logged = actualsForExercise(prescribed.exercise);
     logged.forEach((a) => setsEl.appendChild(renderSet(a)));
 
+    // Bodyweight shortcut: no form, one tap logs the prescribed reps + weight.
+    const bw = !prescribed.adHoc && isBodyweight(prescribed.weight);
+    const prescribedRepsInt = parseFirstInt(prescribed.reps);
+    if (bw && prescribedRepsInt !== null) {
+      logBtn.classList.add('done-btn');
+      logBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span>Done</span>';
+      logBtn.addEventListener('click', () => {
+        logSetOptimistic(prescribed.exercise, prescribedRepsInt, prescribed.weight);
+      });
+      return node;
+    }
+
+    // Regular flow: open a form with reps + weight inputs.
     logBtn.addEventListener('click', () => {
       logBtn.disabled = true;
       const form = logFormTpl.content.firstElementChild.cloneNode(true);
       const repsInput = form.querySelector('input[name="reps"]');
       const weightInput = form.querySelector('input[name="weight"]');
 
-      // Prefill from last logged set, or from prescription.
       const currentLogged = actualsForExercise(prescribed.exercise);
       const lastLogged = currentLogged[currentLogged.length - 1];
       if (lastLogged) {
         repsInput.value = lastLogged.reps;
         weightInput.value = String(lastLogged.weight);
       } else if (!prescribed.adHoc) {
-        const repsGuess = parseInt(String(prescribed.reps).match(/\d+/) || [], 10);
-        if (!isNaN(repsGuess)) repsInput.value = repsGuess;
+        if (prescribedRepsInt !== null) repsInput.value = prescribedRepsInt;
         if (prescribed.weight) weightInput.value = String(prescribed.weight);
       }
 
-      // Weight chips populate the field.
       form.querySelectorAll('.chip').forEach((chip) => {
         chip.addEventListener('click', () => {
           weightInput.value = chip.dataset.weight;
@@ -239,53 +249,11 @@
           weightInput.focus();
           return;
         }
-        // Numeric strings go as numbers; anything else stays a string.
         const asNum = Number(weightRaw);
         const weight = isNaN(asNum) ? weightRaw : asNum;
-
-        const setNumber = actualsForExercise(prescribed.exercise).length + 1;
-        // Optimistic: append the set locally IMMEDIATELY and re-render this
-        // exercise. Fire the API call in the background.
-        const optimistic = {
-          loggedAt: new Date().toISOString(),
-          date: state.date,
-          exercise: prescribed.exercise,
-          setNumber: setNumber,
-          reps: reps,
-          weight: weight,
-          notes: '',
-          rowIndex: null,     // will be assigned by server
-          pending: true,      // marks the row as in-flight
-          clientId: 'p' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-        };
-        state.actuals.push(optimistic);
         form.remove();
         logBtn.disabled = false;
-        render();
-
-        // Background save.
-        apiPost({
-          action: 'logSet',
-          date: state.date,
-          exercise: prescribed.exercise,
-          setNumber: setNumber,
-          reps: reps,
-          weight: weight,
-        }).then((data) => {
-          // Replace the pending row with a confirmed one.
-          const target = state.actuals.find((a) => a.clientId === optimistic.clientId);
-          if (target) {
-            target.pending = false;
-            if (data && data.row && data.row.rowIndex) target.rowIndex = data.row.rowIndex;
-          }
-          render();
-        }).catch((err) => {
-          // Drop the failed pending row and surface the error.
-          state.actuals = state.actuals.filter((a) => a.clientId !== optimistic.clientId);
-          render();
-          setStatus('Failed to save: ' + err.message, true);
-          setTimeout(() => setStatus(''), 4000);
-        });
+        logSetOptimistic(prescribed.exercise, reps, weight);
       });
 
       actionsEl.before(form);
@@ -293,6 +261,57 @@
     });
 
     return node;
+  }
+
+  // Optimistically append a set to state, render, then save in the background.
+  function logSetOptimistic(exercise, reps, weight) {
+    const setNumber = actualsForExercise(exercise).length + 1;
+    const optimistic = {
+      loggedAt: new Date().toISOString(),
+      date: state.date,
+      exercise: exercise,
+      setNumber: setNumber,
+      reps: reps,
+      weight: weight,
+      notes: '',
+      rowIndex: null,
+      pending: true,
+      clientId: 'p' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    };
+    state.actuals.push(optimistic);
+    render();
+
+    apiPost({
+      action: 'logSet',
+      date: state.date,
+      exercise: exercise,
+      setNumber: setNumber,
+      reps: reps,
+      weight: weight,
+    }).then((data) => {
+      const target = state.actuals.find((a) => a.clientId === optimistic.clientId);
+      if (target) {
+        target.pending = false;
+        if (data && data.row && data.row.rowIndex) target.rowIndex = data.row.rowIndex;
+      }
+      render();
+    }).catch((err) => {
+      state.actuals = state.actuals.filter((a) => a.clientId !== optimistic.clientId);
+      render();
+      setStatus('Failed to save: ' + err.message, true);
+      setTimeout(() => setStatus(''), 4000);
+    });
+  }
+
+  function isBodyweight(weight) {
+    if (!weight) return false;
+    const s = String(weight).toLowerCase();
+    return s.includes('bw') || s.includes('bodyweight');
+  }
+
+  function parseFirstInt(s) {
+    const m = String(s || '').match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
   }
 
   function renderSet(actual) {

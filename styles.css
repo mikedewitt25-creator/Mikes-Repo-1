@@ -305,10 +305,26 @@ main {
   letter-spacing: 0.3px;
   cursor: pointer;
   box-shadow: 0 2px 8px var(--accent-glow);
+  font-family: inherit;
 }
 
 .log-btn:active { background: var(--accent-strong); }
 .log-btn:disabled { opacity: 0.5; box-shadow: none; }
+
+/* Bodyweight one-tap Done variant */
+.log-btn.done-btn {
+  background: var(--success);
+  color: #052e16;
+  padding: 12px 22px;
+  font-size: 15px;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-btn.done-btn:active { background: #16a34a; }
+.log-btn.done-btn svg { display: block; }
 
 /* Log form */
 
