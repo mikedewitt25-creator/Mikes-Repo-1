@@ -406,11 +406,27 @@
 
   function saveRomanHistory() {
     try {
-      // Trim to last 40 turns to keep localStorage + Claude context bounded.
-      const trimmed = romanHistory.slice(-40);
+      // Keep the last N conversation turns. A "turn" starts at a user TEXT
+      // message (not a tool_result). Trimming mid-tool-use would leave
+      // orphan tool_use blocks that Claude 400s on next send.
+      const trimmed = trimByTurns(romanHistory, 10);
       localStorage.setItem('romanHistory', JSON.stringify(trimmed));
       romanHistory = trimmed;
     } catch (e) { /* quota — ignore */ }
+  }
+
+  function trimByTurns(msgs, maxTurns) {
+    const turnStarts = [];
+    for (let i = 0; i < msgs.length; i++) {
+      const m = msgs[i];
+      if (m.role !== 'user') continue;
+      const isToolResult = Array.isArray(m.content) && m.content.length > 0 &&
+        m.content.every((b) => b && b.type === 'tool_result');
+      if (!isToolResult) turnStarts.push(i);
+    }
+    if (turnStarts.length <= maxTurns) return msgs;
+    const keepFrom = turnStarts[turnStarts.length - maxTurns];
+    return msgs.slice(keepFrom);
   }
 
   function renderRomanHistory() {
@@ -901,7 +917,23 @@
       loadDay(state.date);
     } catch (err) {
       thinking.remove();
-      appendRomanBubble('error', 'Roman failed: ' + err.message);
+      const msg = String(err.message || '');
+      appendRomanBubble('error', 'Roman failed: ' + msg);
+      // If the error is a tool_use/tool_result mismatch, offer a one-tap recovery.
+      if (/tool_use|tool_result/i.test(msg)) {
+        const recover = document.createElement('div');
+        recover.className = 'roman-msg error';
+        recover.innerHTML = 'Chat history looks corrupted. <button id="autoClearChat" style="background:transparent;border:1px solid currentColor;border-radius:6px;padding:4px 10px;color:inherit;font-family:inherit;font-size:12px;cursor:pointer;margin-left:6px">Clear chat & retry</button>';
+        romanMessages.appendChild(recover);
+        const btn = recover.querySelector('#autoClearChat');
+        btn.addEventListener('click', () => {
+          romanHistory = [];
+          saveRomanHistory();
+          renderRomanHistory();
+          romanInput.value = text;
+          romanForm.requestSubmit();
+        });
+      }
     } finally {
       romanSend.disabled = false;
       scrollRomanToBottom();

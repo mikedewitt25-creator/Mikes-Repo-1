@@ -159,6 +159,8 @@ Rules for using tools:
 - NEVER invent numbers — read the sheet first
 - If a tool result is empty, tell him honestly
 
+PLAN ONE DAY AT A TIME UNLESS ASKED OTHERWISE. When Mike says "plan tomorrow" or "give me today's workout" or "let's do upper strength," call set_prescribed ONCE for that one day. Do not preemptively plan the rest of the week — that produces a big multi-tool-use response that risks getting cut off. If Mike explicitly asks for the whole week, call set_prescribed once per day sequentially (4 separate tool_use turns), not all in parallel.
+
 GROUPING RULES (critical — Mike sees exercises grouped by block in the app):
 Every prescribed exercise MUST have a "group" letter (A, B, C, ...). The group tells the app how to render blocks and supersets.
 - Standalone strength lift → its own letter. Bench Press alone in Block A → group: "A".
@@ -374,12 +376,16 @@ function handleChat_(body) {
     throw new Error('ANTHROPIC_API_KEY not set. Open Apps Script Project Settings → Script Properties and add it.');
   }
 
-  const priorMessages = Array.isArray(body.messages) ? body.messages.slice() : [];
+  // Sanitize incoming history: strip any orphan tool_use / tool_result blocks
+  // that would make Claude reject the request. Corruption can happen if a prior
+  // turn hit max_tokens mid-tool-use, or if the client's trim broke pairing.
+  const priorMessages = sanitizeMessages_(
+    Array.isArray(body.messages) ? body.messages.slice() : []
+  );
   const userText = String(body.userMessage || '').trim();
   if (!userText) throw new Error('Empty message');
 
   const todayIso = body.today || todayIso_();
-  // On the first turn, prepend today's date so Roman has an anchor for relative dates.
   const framedUserText = priorMessages.length === 0
     ? "(Today is " + todayIso + ".)\n\n" + userText
     : userText;
@@ -388,7 +394,6 @@ function handleChat_(body) {
 
   const tools = romanTools_();
 
-  // Tool-use loop — max 10 iterations to prevent runaway.
   for (let iter = 0; iter < 10; iter++) {
     const resp = callClaude_(apiKey, messages, tools);
 
@@ -414,7 +419,17 @@ function handleChat_(body) {
       continue;
     }
 
-    // end_turn, max_tokens, refusal, etc. — extract the assistant text and return.
+    // If Claude got cut off by max_tokens mid-tool-use, DO NOT persist the
+    // truncated assistant message — it would corrupt history for future turns.
+    // Instead throw a clear error so the client can retry with a smaller ask.
+    if (resp.stop_reason === 'max_tokens') {
+      const hasUnclosedToolUse = resp.content.some(function (b) { return b.type === 'tool_use'; });
+      if (hasUnclosedToolUse) {
+        throw new Error('Response was cut off while generating tool calls. Try a smaller ask (e.g. one day at a time instead of a whole week).');
+      }
+    }
+
+    // end_turn, max_tokens (text-only), refusal, etc.
     let text = '';
     for (let k = 0; k < resp.content.length; k++) {
       const block = resp.content[k];
@@ -427,13 +442,52 @@ function handleChat_(body) {
     return { reply: text || '(no reply)', messages: messages };
   }
 
-  throw new Error('Tool loop exceeded 10 iterations');
+  throw new Error('Tool loop exceeded 10 iterations. Try a smaller ask.');
+}
+
+// Strip corrupted history blocks that would 400 at the Claude API. The API
+// requires: every assistant tool_use is followed by a user tool_result, and
+// every user tool_result is preceded by an assistant tool_use. Corruption can
+// arrive here from a prior max_tokens truncation or from client-side trim.
+function sanitizeMessages_(messages) {
+  const cleaned = messages.slice();
+
+  // Drop trailing assistant messages whose content includes any tool_use.
+  // If the pair was complete we'd never truncate; if it's incomplete we drop it.
+  while (cleaned.length > 0) {
+    const last = cleaned[cleaned.length - 1];
+    if (last && last.role === 'assistant' && Array.isArray(last.content) &&
+        last.content.some(function (b) { return b.type === 'tool_use'; })) {
+      // Peek ahead — this shouldn't happen at the tail, but if the "next"
+      // is a matching tool_result we keep it. Since it's the last message,
+      // there is no next → drop.
+      cleaned.pop();
+      continue;
+    }
+    break;
+  }
+
+  // Drop leading user messages that are purely tool_result (orphaned by trim).
+  while (cleaned.length > 0) {
+    const first = cleaned[0];
+    if (first && first.role === 'user' && Array.isArray(first.content) &&
+        first.content.length > 0 &&
+        first.content.every(function (b) { return b.type === 'tool_result'; })) {
+      cleaned.shift();
+      continue;
+    }
+    break;
+  }
+
+  return cleaned;
 }
 
 function callClaude_(apiKey, messages, tools) {
   const payload = {
     model: CLAUDE_MODEL,
-    max_tokens: 4096,
+    // 16K is the safe non-streaming ceiling and gives Roman enough room to
+    // emit multi-day plans with detailed tool_use blocks.
+    max_tokens: 16384,
     system: ROMAN_SYSTEM_PROMPT,
     tools: tools,
     messages: messages,
