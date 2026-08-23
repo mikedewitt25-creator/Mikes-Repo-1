@@ -685,3 +685,111 @@ function setupSheets() {
     actuals.setFrozenRows(1);
   }
 }
+
+/**
+ * ONE-TIME LOADER — Block 2 Peak (Week 5) + Deload/Retest (Week 6).
+ *
+ * Writes 6 prescribed workouts directly to the Prescribed sheet, correctly
+ * grouped by block. Safe to re-run — each day uses replacePrescribed_ which
+ * deletes existing rows for that date first.
+ *
+ *   INSTALLED: Thu5, Fri5, Mon6, Tue6, Thu6 (retest), Fri6
+ *   SKIPPED:   Mon5 + Tue5 (travel days — hotel gym unknown, use Roman to
+ *              build travel-adapted DB/HIIT versions on the day-of)
+ *
+ * To use:
+ *   1. Pick "installBlock2Weeks5and6" from the function dropdown at the top.
+ *   2. Click ▶ Run. Done in <1 second.
+ *
+ * If your Week 5 Monday is a different date, edit WEEK5_MONDAY below.
+ */
+function installBlock2Weeks5and6() {
+  const WEEK5_MONDAY = '2026-08-24';
+
+  const d = {
+    thu5: shiftIso_(WEEK5_MONDAY, 3),
+    fri5: shiftIso_(WEEK5_MONDAY, 4),
+    mon6: shiftIso_(WEEK5_MONDAY, 7),
+    tue6: shiftIso_(WEEK5_MONDAY, 8),
+    thu6: shiftIso_(WEEK5_MONDAY, 10),
+    fri6: shiftIso_(WEEK5_MONDAY, 11),
+  };
+
+  const plan = {};
+
+  // ============ WEEK 5 — PEAK WEEK ============
+  //
+  // MON5 + TUE5 are TRAVEL DAYS — ask Roman in the app to build DB-only /
+  // HIIT-heavy versions based on what the hotel gym actually has. Do NOT
+  // hardcode them here since the equipment is uncertain.
+
+  plan[d.thu5] = [ // Focused Cardio
+    { group:'A', exercise:'Outdoor Sprint Ladder', sets:12, reps:'4×10s/30s → 4×20s/40s → 4×30s/60s', weight:'max effort', notes:'Phase 1, 14 min. Sprint ladder — 12 total sprints' },
+    { group:'B', exercise:'Deadlift (complex)',    sets:4, reps:'6', weight:'100 lbs', notes:'Phase 2 barbell complex. No rest between moves. 90s between rounds. 4 rounds.' },
+    { group:'B', exercise:'Bent Row (complex)',    sets:4, reps:'6', weight:'100 lbs', notes:'Continue complex — no rest' },
+    { group:'B', exercise:'Hang Clean (complex)',  sets:4, reps:'6', weight:'100 lbs', notes:'Continue complex — no rest' },
+    { group:'B', exercise:'Front Squat (complex)', sets:4, reps:'6', weight:'100 lbs', notes:'Continue complex — no rest' },
+    { group:'B', exercise:'Push Press (complex)',  sets:4, reps:'6', weight:'100 lbs', notes:'End of complex — 90s between rounds' },
+    { group:'C', exercise:'Bear Crawl',            sets:3, reps:'20 yds',    weight:'BW',      notes:'Phase 3 crawl/carry finisher, 9 min, 3 rounds' },
+    { group:'C', exercise:'Suitcase Carry',        sets:3, reps:'40 yds ea', weight:'70 lb DB', notes:'Phase 3 continued' },
+    { group:'C', exercise:'Jump Rope',             sets:3, reps:'45s',       weight:'BW',      notes:'Phase 3 finisher' },
+  ];
+
+  plan[d.fri5] = [ // Full Body Athletic
+    { group:'A', exercise:'Front Squat',       sets:4, reps:'5', weight:'220 lbs',   notes:'Superset with Weighted Pull-Up, 4 rounds' },
+    { group:'A', exercise:'Weighted Pull-Up',  sets:4, reps:'6', weight:'BW + 20 lbs', notes:'Superset with Front Squat' },
+    { group:'B', exercise:'Landmine Press',    sets:3, reps:'10 ea', weight:'55 lbs',   notes:'Tri-set with Seal Row + Reverse Curl, 3 rounds' },
+    { group:'B', exercise:'Seal Row',          sets:3, reps:'10',    weight:'2×60 lb DBs', notes:'Or Chest-Supported Row. Tri-set continues.' },
+    { group:'B', exercise:'Reverse Curl',      sets:3, reps:'15',    weight:'70 lbs',   notes:'Tri-set finisher' },
+    { group:'C', exercise:'Barbell Power Clean', sets:3, reps:'4', weight:'200 lbs', notes:'EARLY in session — arms fresh. Superset with Broad Jump, 3 rounds' },
+    { group:'C', exercise:'Broad Jump',        sets:3, reps:'4', weight:'BW',       notes:'Superset with Power Clean' },
+    { group:'D', exercise:'Thruster',          sets:1, reps:'AMRAP 8 min', weight:'95 lbs',  notes:'AMRAP finisher: Thruster → Pull-Up → KB Swing, continuous rounds for 8 min' },
+    { group:'D', exercise:'Pull-Up',           sets:1, reps:'AMRAP 8 min', weight:'BW',      notes:'Continue AMRAP circuit' },
+    { group:'D', exercise:'KB Swing',          sets:1, reps:'AMRAP 8 min', weight:'35 lb KB', notes:'Continue AMRAP circuit' },
+  ];
+
+  // ============ WEEK 6 — DELOAD + RETEST ============
+
+  plan[d.mon6] = [ // Deload Lower (60% loads, higher reps, 35 min)
+    { group:'A', exercise:'Goblet Squat',      sets:3, reps:'15',    weight:'50 lb KB',   notes:'Deload — 60% loads. Superset with SL RDL, 3 rounds' },
+    { group:'A', exercise:'Single-Leg RDL',    sets:3, reps:'12 ea', weight:'40 lb DB',   notes:'Superset with Goblet Squat' },
+    { group:'B', exercise:'DB Reverse Lunge',  sets:3, reps:'12 ea', weight:'2×25 lb DBs', notes:'Superset with Glute Bridge, 3 rounds' },
+    { group:'B', exercise:'Glute Bridge',      sets:3, reps:'15',    weight:'95 lbs',      notes:'Superset with Reverse Lunge' },
+    { group:'C', exercise:'KB Swing / Jump Rope', sets:3, reps:'30s / 30s', weight:'25 lb KB', notes:'Easy conditioning, 6 min, 3 rounds' },
+  ];
+
+  plan[d.tue6] = [ // Deload Upper (60%, 35 min)
+    { group:'A', exercise:'DB Bench Press',    sets:3, reps:'12', weight:'2×65 lb DBs', notes:'Deload — 60% loads. Superset with TRX Row, 3 rounds' },
+    { group:'A', exercise:'TRX Row',           sets:3, reps:'15', weight:'BW',          notes:'Superset with DB Bench' },
+    { group:'B', exercise:'Pull-Up',           sets:3, reps:'8',  weight:'BW',          notes:'No vest. Superset with Lateral Raise, 3 rounds' },
+    { group:'B', exercise:'DB Lateral Raise',  sets:3, reps:'15', weight:'2×20 lb DBs', notes:'Superset with Pull-Up' },
+    { group:'C', exercise:'Band Face Pull',    sets:3, reps:'30s', weight:'Bands',       notes:'Conditioning, alternating with Dead Bug, 6 min, 3 rounds' },
+    { group:'C', exercise:'Dead Bug',          sets:3, reps:'30s', weight:'BW',          notes:'Alternate with Face Pull' },
+  ];
+
+  plan[d.thu6] = [ // RETEST DAY
+    { group:'A', exercise:'Back Squat (free bar)', sets:1, reps:'1', weight:'315+ lbs', notes:'RETEST. Ramp to a clean single at/near 315 PR. Attempt new max if bar speed is good.' },
+    { group:'B', exercise:'Bench Press (standard grip)', sets:1, reps:'1', weight:'255+ lbs', notes:'RETEST. Ramp to a clean single vs 255 PR.' },
+    { group:'C', exercise:'Front Squat',           sets:1, reps:'3', weight:'235+ lbs', notes:'RETEST. Ramp to a clean triple vs 235 baseline.' },
+  ];
+
+  plan[d.fri6] = [ // Light Full Body Flush (30 min active recovery)
+    { group:'A', exercise:'Turkish Get-Up',    sets:4, reps:'3 ea',   weight:'35 lb KB',       notes:'Active recovery' },
+    { group:'B', exercise:'Waiter Walk',       sets:4, reps:'40 yds', weight:'40 lb DB overhead', notes:'Overhead carry' },
+    { group:'C', exercise:'Bike or Walk (Zone 2)', sets:1, reps:'10 min', weight:'easy', notes:'Zone 2 aerobic — nasal breathing pace' },
+  ];
+
+  const results = {};
+  Object.keys(plan).forEach(function (date) {
+    replacePrescribed_(date, plan[date]);
+    results[date] = plan[date].length + ' exercises';
+  });
+
+  // Print to the Apps Script execution log so you can confirm it worked.
+  Logger.log('Installed Block 2 Weeks 5-6:');
+  Object.keys(results).forEach(function (date) {
+    Logger.log('  ' + date + ' — ' + results[date]);
+  });
+
+  return results;
+}
