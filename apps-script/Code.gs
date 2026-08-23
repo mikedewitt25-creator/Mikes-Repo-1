@@ -793,3 +793,166 @@ function installBlock2Weeks5and6() {
 
   return results;
 }
+
+/**
+ * ONE-TIME BACKFILL — Historical Actuals (Jan – Aug 2026).
+ *
+ * Two things merged in:
+ *   1. Roman's detailed Block 2 session log (real weights/reps for
+ *      specific dates in Weeks 1-4).
+ *   2. Placeholder "Training Session" rows on every M/T/Th/F from
+ *      2026-01-05 through 2026-08-17 for any date the detailed log
+ *      doesn't already cover — reflecting Mike's actual 4x/week
+ *      training frequency since January.
+ *
+ * Result: weekly bars and streak count reflect true training frequency;
+ * top lifts use the real captured weights so trend arrows are honest.
+ *
+ * Guard: aborts if Actuals already has any rows for 2026-07-27 to avoid
+ * duplicating. Delete those rows first if you need to re-run.
+ *
+ * To use:
+ *   1. Function dropdown → installHistoricalActuals → ▶ Run.
+ *   2. Check the execution log for row counts.
+ *   3. Open the app → Trends tab. Weekly bars fill up, streak counts.
+ */
+function installHistoricalActuals() {
+  const guardDate = '2026-07-27';
+  if (readActuals_(guardDate).length > 0) {
+    Logger.log('Actuals already contain rows for ' + guardDate + '. Skipping to avoid duplicates.');
+    return { skipped: true };
+  }
+
+  const rows = [
+    // ============ WEEK 1 (Jul 27 – Aug 2) ============
+    // Mon Jul 27 — Lower
+    { date:'2026-07-27', exercise:'Back Squat',              setNumber:4, reps:5, weight:285,    notes:'Top set only (sets 1-3 not logged)' },
+    { date:'2026-07-27', exercise:'Barbell Power Clean',     setNumber:4, reps:4, weight:185,    notes:'Top set only' },
+    { date:'2026-07-27', exercise:'DB Walking Lunge',        setNumber:1, reps:10, weight:30,    notes:'Reps assumed from prescription' },
+    // Tue Jul 28 — Upper
+    { date:'2026-07-28', exercise:'Bench Press',             setNumber:4, reps:5, weight:245,    notes:'Top set only' },
+    { date:'2026-07-28', exercise:'1-Arm DB Row',            setNumber:4, reps:8, weight:85,     notes:'Top set only (swapped from bent row)' },
+    { date:'2026-07-28', exercise:'Pull-Up',                 setNumber:1, reps:8, weight:'BW',   notes:'8/8/8/8 all four sets equal' },
+    { date:'2026-07-28', exercise:'Pull-Up',                 setNumber:2, reps:8, weight:'BW' },
+    { date:'2026-07-28', exercise:'Pull-Up',                 setNumber:3, reps:8, weight:'BW' },
+    { date:'2026-07-28', exercise:'Pull-Up',                 setNumber:4, reps:8, weight:'BW' },
+
+    // ============ WEEK 2 (Aug 3 – Aug 9) ============
+    // Mon Aug 3 — Lower
+    { date:'2026-08-03', exercise:'Back Squat',              setNumber:4, reps:5, weight:295,    notes:'Top set only (PR climb)' },
+    { date:'2026-08-03', exercise:'Single-Arm Single-Leg RDL', setNumber:1, reps:6, weight:65,   notes:'Top set only' },
+    { date:'2026-08-03', exercise:'Barbell Power Clean',     setNumber:4, reps:4, weight:195,    notes:'Top set only' },
+    { date:'2026-08-03', exercise:'DB Walking Lunge',        setNumber:1, reps:10, weight:35 },
+    { date:'2026-08-03', exercise:'Barbell Glute Bridge',    setNumber:1, reps:12, weight:70,    notes:'Logged as 70 lb DB — flagged as light for movement' },
+    // Fri Aug 7 — Full Body
+    { date:'2026-08-07', exercise:'Front Squat',             setNumber:4, reps:4, weight:225,    notes:'Top set only' },
+    { date:'2026-08-07', exercise:'Weighted Pull-Up',        setNumber:1, reps:6, weight:'BW + 20' },
+    { date:'2026-08-07', exercise:'Barbell Shoulder Press',  setNumber:1, reps:10, weight:115,   notes:'Swapped from DB press' },
+    { date:'2026-08-07', exercise:'1-Arm DB Row',            setNumber:1, reps:10, weight:75 },
+    { date:'2026-08-07', exercise:'DB Thruster',             setNumber:1, reps:10, weight:40,    notes:'Reps not confirmed (defaulted to 10)' },
+
+    // ============ WEEK 3 (Aug 10 – Aug 16) ============
+    // Mon Aug 10 — Lower
+    { date:'2026-08-10', exercise:'Back Squat',              setNumber:4, reps:5, weight:295,    notes:'Top set only' },
+    { date:'2026-08-10', exercise:'Single-Arm Single-Leg RDL', setNumber:1, reps:6, weight:60 },
+    { date:'2026-08-10', exercise:'KB Single-Arm Clean to Press', setNumber:1, reps:6, weight:35, notes:'New movement, top set only' },
+    { date:'2026-08-10', exercise:'DB Walking Lunge',        setNumber:1, reps:10, weight:40 },
+    { date:'2026-08-10', exercise:'Barbell Glute Bridge',    setNumber:1, reps:12, weight:135 },
+    // Tue Aug 11 — Upper
+    { date:'2026-08-11', exercise:'Bench Press',             setNumber:4, reps:5, weight:255,    notes:'Top set only (PR)' },
+    { date:'2026-08-11', exercise:'1-Arm DB Row',            setNumber:4, reps:8, weight:85 },
+    { date:'2026-08-11', exercise:'Pull-Up',                 setNumber:1, reps:8, weight:'BW + 12', notes:'12 lb vest' },
+    { date:'2026-08-11', exercise:'DB Arnold Press',         setNumber:1, reps:10, weight:50 },
+    // Fri Aug 14 — Full Body
+    { date:'2026-08-14', exercise:'Front Squat',             setNumber:1, reps:4, weight:235,    notes:'Top set only (PR)' },
+    { date:'2026-08-14', exercise:'Weighted Pull-Up',        setNumber:1, reps:6, weight:'BW + 20', notes:'Chain used, equivalent load' },
+    { date:'2026-08-14', exercise:'Barbell Shoulder Press',  setNumber:4, reps:10, weight:125,   notes:'Top set only' },
+    { date:'2026-08-14', exercise:'1-Arm DB Row',            setNumber:1, reps:10, weight:75 },
+    { date:'2026-08-14', exercise:'DB Incline Curl',         setNumber:1, reps:10, weight:25,    notes:'Swapped from barbell curl; 30 lb too heavy' },
+    { date:'2026-08-14', exercise:'Barbell Power Clean',     setNumber:1, reps:4, weight:185 },
+
+    // ============ WEEK 4 (Aug 17 – Aug 23) ============
+    // Mon Aug 17 — back-safe recovery day
+    { date:'2026-08-17', exercise:'Box Squat',               setNumber:1, reps:5, weight:275,    notes:'Back tweak recovery Day 3 — back-safe' },
+    { date:'2026-08-17', exercise:'Front Squat',             setNumber:1, reps:4, weight:205,    notes:'Back-safe session; reps approx' },
+    // Tue Aug 18 — post-back-tweak return, upper
+    { date:'2026-08-18', exercise:'Close-Grip Bench Press',  setNumber:4, reps:6, weight:225,    notes:'Post-tweak return; top set only (PR)' },
+    { date:'2026-08-18', exercise:'1-Arm DB Row',            setNumber:1, reps:8, weight:90,     notes:'New PR — exact rep count approx' },
+    { date:'2026-08-18', exercise:'Z-Press',                 setNumber:1, reps:8, weight:50,     notes:'New PR at prescribed load' },
+    { date:'2026-08-18', exercise:'Chin-Up',                 setNumber:1, reps:10, weight:'BW' },
+    { date:'2026-08-18', exercise:'Chin-Up',                 setNumber:2, reps:9,  weight:'BW' },
+    { date:'2026-08-18', exercise:'Chin-Up',                 setNumber:3, reps:8,  weight:'BW' },
+    { date:'2026-08-18', exercise:'Hammer Curl',             setNumber:1, reps:12, weight:30,    notes:'Reps approx' },
+    // Wed Aug 19 — Box Squat climb (lower)
+    { date:'2026-08-19', exercise:'Box Squat',               setNumber:4, reps:5, weight:295,    notes:'Climbed 265/275/285/295' },
+    { date:'2026-08-19', exercise:'Barbell Good Morning',    setNumber:1, reps:8, weight:135,    notes:'Reps approx (Rx was 8)' },
+    { date:'2026-08-19', exercise:'Cossack Squat',           setNumber:3, reps:10, weight:40,    notes:'Progressed 30/30/40; reps approx' },
+    { date:'2026-08-19', exercise:'Box Step-Up',             setNumber:1, reps:10, weight:35 },
+    { date:'2026-08-19', exercise:'KB Snatch',               setNumber:2, reps:8, weight:35,     notes:'Started 15 lb, moved to 35; reps approx' },
+    // Thu Aug 20 — Upper
+    { date:'2026-08-20', exercise:'Close-Grip Bench Press',  setNumber:2, reps:6, weight:225,    notes:'Climbed 205/205/215/225; top only confirmed' },
+    { date:'2026-08-20', exercise:'1-Arm DB Row',            setNumber:4, reps:8, weight:85 },
+    { date:'2026-08-20', exercise:'Z-Press',                 setNumber:3, reps:8, weight:45,     notes:'Climbed 35/40/45' },
+    { date:'2026-08-20', exercise:'Chin-Up',                 setNumber:1, reps:8, weight:'BW' },
+    { date:'2026-08-20', exercise:'Hammer Curl',             setNumber:1, reps:12, weight:30,    notes:'Fatigue set 3-4; reps approx' },
+  ];
+
+  // Bucket detailed dates by their week Monday, so we can top up each week
+  // to the 4-session target without over-inflating weeks like Week 4 that
+  // already had a full M/T/W/Th of detailed data.
+  const weekBuckets = {};
+  rows.forEach(function (r) {
+    const wk = mondayIsoOf_(r.date);
+    if (!weekBuckets[wk]) weekBuckets[wk] = {};
+    weekBuckets[wk][r.date] = true;
+  });
+
+  // Generate placeholders on M/T/Th/F from Jan 5 2026 through Aug 17 2026.
+  // Only add a placeholder if the date isn't already in the detailed log AND
+  // the week still has fewer than 4 distinct dates.
+  const START_MON = '2026-01-05';
+  const END_MON   = '2026-08-17';
+  const TARGET    = 4;
+  const DAY_OFFSETS = [0, 1, 3, 4]; // Mon, Tue, Thu, Fri
+
+  const placeholderRows = [];
+  let monday = new Date(START_MON + 'T00:00:00');
+  const endMondayD = new Date(END_MON + 'T00:00:00');
+  while (monday <= endMondayD) {
+    const wkKey = Utilities.formatDate(monday, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    const existing = weekBuckets[wkKey] || {};
+    for (let i = 0; i < DAY_OFFSETS.length; i++) {
+      if (Object.keys(existing).length >= TARGET) break;
+      const d = new Date(monday);
+      d.setDate(d.getDate() + DAY_OFFSETS[i]);
+      const iso = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      if (!existing[iso]) {
+        placeholderRows.push({
+          date: iso,
+          exercise: 'Training Session',
+          setNumber: 1,
+          reps: 1,
+          weight: 0,
+          notes: 'Backfilled — session completed, details not captured in Roman log',
+        });
+        existing[iso] = true;
+      }
+    }
+    monday.setDate(monday.getDate() + 7);
+  }
+
+  const allRows = rows.concat(placeholderRows);
+  allRows.forEach(function (r) { appendActual_(r); });
+
+  Logger.log('Loaded ' + rows.length + ' detailed rows + ' + placeholderRows.length + ' placeholder sessions.');
+  return { detailed: rows.length, placeholders: placeholderRows.length, total: allRows.length };
+}
+
+// Helper: Monday (YYYY-MM-DD) of the week containing the given ISO date.
+function mondayIsoOf_(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const offset = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + offset);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
