@@ -696,6 +696,27 @@ main {
   margin-top: 4px;
 }
 
+/* Streak variant: highlighted card, accent-colored value, glow */
+.trend-stat.trend-stat-streak {
+  background: linear-gradient(135deg, rgba(30, 86, 255, 0.14), rgba(30, 86, 255, 0.04));
+  border-color: var(--accent);
+}
+
+.trend-stat.trend-stat-streak::before {
+  width: 4px;
+  background: linear-gradient(180deg, var(--accent), #4a7dff);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.trend-stat.trend-stat-streak .trend-stat-value {
+  color: var(--accent);
+  text-shadow: 0 0 20px var(--accent-glow);
+}
+
+.trend-stat.trend-stat-streak .trend-stat-label {
+  color: var(--text);
+}
+
 .trend-section {
   background: var(--surface);
   border: 1px solid var(--border);

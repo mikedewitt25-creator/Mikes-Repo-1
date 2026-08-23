@@ -388,7 +388,6 @@
   const romanClear = document.getElementById('romanClear');
 
   let romanHistoryRendered = false;
-  let trendsLoaded = false;
 
   // Persist Roman's conversation across page loads so context isn't lost when
   // Mike closes the tab mid-conversation.
@@ -532,7 +531,8 @@
       trendsStatus.classList.add('error');
       return;
     }
-    if (trendsLoaded) return; // simple cache — user can reload the app to refresh
+    // Always refetch — no cache — so numbers reflect the latest logged sets
+    // as soon as Mike opens the tab.
     trendsStatus.textContent = 'Loading…';
     trendsStatus.classList.remove('error');
     try {
@@ -542,7 +542,6 @@
       const sets = data.sets || [];
       renderTrends(sets, start, end);
       trendsStatus.textContent = '';
-      trendsLoaded = true;
     } catch (err) {
       trendsStatus.textContent = 'Failed to load: ' + err.message;
       trendsStatus.classList.add('error');
@@ -569,7 +568,11 @@
     );
     const cardioThisMonth = countDaysInRange(cardioDays, monthStart, todayD);
 
-    trendsContent.appendChild(renderSummary(setsThisWeek, setsThisMonth, cardioThisMonth));
+    // Streak: consecutive weeks (ending most-recent completed week) at target.
+    // Current week counts only if it's already hit the target.
+    const streak = computeStreak(daysWithSets, monday, 4);
+
+    trendsContent.appendChild(renderSummary(setsThisWeek, setsThisMonth, cardioThisMonth, streak));
 
     // 2. Weekly bars for last 8 weeks
     trendsContent.appendChild(renderWeeklyBars(daysWithSets, monday));
@@ -578,18 +581,45 @@
     trendsContent.appendChild(renderTopLifts(sets));
   }
 
-  function renderSummary(week, month, cardio) {
+  function renderSummary(week, month, cardio, streak) {
     const wrap = document.createElement('div');
     wrap.className = 'trends-summary';
-    wrap.appendChild(makeStat(week, 'This week'));
+    wrap.appendChild(makeStat(week + '/4', 'This week'));
     wrap.appendChild(makeStat(month, 'This month'));
     wrap.appendChild(makeStat(cardio, 'Cardio (30d)'));
+    // Streak card gets a highlight class so it visually pops
+    wrap.appendChild(makeStat(streak, streak === 1 ? 'Week streak' : 'Week streak', 'streak'));
     return wrap;
   }
 
-  function makeStat(value, label) {
+  function computeStreak(daysWithSets, thisMonday, target) {
+    let streak = 0;
+    // Current week: only counts if already at target.
+    const currentEnd = new Date(thisMonday);
+    currentEnd.setDate(currentEnd.getDate() + 6);
+    if (countDaysInRange(daysWithSets, thisMonday, currentEnd) >= target) {
+      streak++;
+    }
+    // Walk backward through completed weeks.
+    let weekStart = new Date(thisMonday);
+    weekStart.setDate(weekStart.getDate() - 7);
+    for (let i = 0; i < 52; i++) {
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const count = countDaysInRange(daysWithSets, weekStart, weekEnd);
+      if (count >= target) {
+        streak++;
+        weekStart.setDate(weekStart.getDate() - 7);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  function makeStat(value, label, variant) {
     const el = document.createElement('div');
-    el.className = 'trend-stat';
+    el.className = 'trend-stat' + (variant ? ' trend-stat-' + variant : '');
     const v = document.createElement('div');
     v.className = 'trend-stat-value';
     v.textContent = value;
