@@ -371,9 +371,15 @@ function replacePrescribed_(date, exercises) {
 /* ================= Roman chat (Claude proxy) ================= */
 
 function handleChat_(body) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  // Trim whitespace / newlines that often sneak in on copy-paste and cause
+  // a spurious 401 "API key is invalid" from Claude.
+  const rawKey = PropertiesService.getScriptProperties().getProperty('ANTHROPIC_API_KEY');
+  const apiKey = rawKey ? String(rawKey).trim() : '';
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY not set. Open Apps Script Project Settings → Script Properties and add it.');
+  }
+  if (!/^sk-ant-/.test(apiKey)) {
+    throw new Error('ANTHROPIC_API_KEY does not look like a valid Anthropic key (should start with "sk-ant-"). Re-check the value in Project Settings → Script Properties.');
   }
 
   // Sanitize incoming history: strip any orphan tool_use / tool_result blocks
